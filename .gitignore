@@ -1,0 +1,23 @@
+# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Runtime data (SQLite, uploads, model cache)
+var/
+data/
+*.db
+*.part
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
