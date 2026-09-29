@@ -1,0 +1,199 @@
+{
+  "id": "an_01J8XK4Q2M7C9D3F5H6J8K0N1P",
+  "status": "completed",
+  "current_step": null,
+  "source": "fresh",
+  "deduplicated": false,
+  "created_at": "2026-09-28T15:02:11Z",
+  "finished_at": "2026-09-28T15:02:52Z",
+  "input": {
+    "filename": "C07.mp4",
+    "sha256": "9f2c…e41a",
+    "size_bytes": 18734221,
+    "duration_s": 74.2,
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "metadata": {
+    "title": "Why permit approvals take so long",
+    "account": "Example account",
+    "platform": "tiktok",
+    "external_id": "C07"
+  },
+  "mode": "speech",
+  "overall": {
+    "score": 6.6,
+    "raw_score": 6.55,
+    "verdict": "improve",
+    "verdict_label": "Improve before posting",
+    "capped": false,
+    "cap_reason": null,
+    "summary": "Clear, well-delivered point with a strong ending, but the first six seconds are setup and captions only start at 0:18.",
+    "point": "Permit approvals take 14 months on average, and the guest argues a 90-day limit would fix it."
+  },
+  "potential": {
+    "helps": [
+      "A concrete, surprising number (14 months) that people repeat when they share.",
+      "A clear takeaway that lands at 1:05, so viewers who finish get a payoff.",
+      "Clean audio and steady delivery keep attention once viewers are in."
+    ],
+    "holds_back": [
+      "The first six seconds are setup, so many viewers scroll away before the claim.",
+      "No captions until 0:18, which loses viewers watching without sound.",
+      "An unexplained reference at 0:22 makes it harder to follow for new viewers."
+    ],
+    "shareable_line": {
+      "t": 6.0,
+      "text": "Fourteen months to approve a permit that should take ninety days.",
+      "note": "A strong candidate for the opening frame or a headline."
+    },
+    "caveat": "Signals commonly linked to watching and sharing, read from this clip alone. Not a forecast of views."
+  },
+  "priority_fixes": [
+    {
+      "rank": 1,
+      "dimension": "hook",
+      "label": "Hook",
+      "fix": "Start the clip at 0:06, where the main claim begins, or add a headline that states the claim from the first frame.",
+      "weighted_gap": 1.25
+    },
+    {
+      "rank": 2,
+      "dimension": "pacing_energy",
+      "label": "Pacing and energy",
+      "fix": "Trim the pauses at 0:41 and 0:52.",
+      "weighted_gap": 0.6
+    },
+    {
+      "rank": 3,
+      "dimension": "on_screen_text",
+      "label": "On-screen text",
+      "fix": "Caption from the first second and move captions above the bottom fifth of the frame.",
+      "weighted_gap": 0.6
+    }
+  ],
+  "dimensions": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "score": 5,
+      "weight": 0.25,
+      "weighted_gap": 1.25,
+      "confidence": "high",
+      "basis": "mixed",
+      "applicable": true,
+      "evidence": [
+        "First word at 0.4 s, so there is no dead air.",
+        "0:00 to 0:06 is background context; the main claim only arrives at 0:06.",
+        "No cut and no on-screen headline in the first 3 seconds."
+      ],
+      "fix": "Start the clip at 0:06, where the main claim begins, or add a headline that states the claim from the first frame."
+    },
+    {
+      "id": "standalone_completeness",
+      "label": "Standalone completeness",
+      "score": 8,
+      "weight": 0.2,
+      "weighted_gap": 0.4,
+      "confidence": "medium",
+      "basis": "mixed",
+      "applicable": true,
+      "evidence": [
+        "Starts on a complete sentence and ends on a finished thought at 1:13.",
+        "“That report” at 0:22 is never introduced."
+      ],
+      "fix": "Name the report in a short caption at 0:22."
+    },
+    {
+      "id": "clarity_payoff",
+      "label": "Message clarity and payoff",
+      "score": 8,
+      "weight": 0.2,
+      "weighted_gap": 0.4,
+      "confidence": "medium",
+      "basis": "judged",
+      "applicable": true,
+      "evidence": [
+        "One clear point (see overall.point).",
+        "Payoff at 1:05 restates the claim with a concrete number."
+      ],
+      "fix": null
+    },
+    {
+      "id": "pacing_energy",
+      "label": "Pacing and energy",
+      "score": 6,
+      "weight": 0.15,
+      "weighted_gap": 0.6,
+      "confidence": "high",
+      "basis": "measured",
+      "applicable": true,
+      "evidence": [
+        "168 words per minute, speech 86% of the clip.",
+        "Three pauses over 1 s; the longest is 1.8 s at 0:41.",
+        "3 cuts in 74 s. Few cuts is normal for this format and is weighted lightly."
+      ],
+      "fix": "Trim the pauses at 0:41 and 0:52."
+    },
+    {
+      "id": "audio_quality",
+      "label": "Audio and speech quality",
+      "score": 8,
+      "weight": 0.1,
+      "weighted_gap": 0.2,
+      "confidence": "high",
+      "basis": "measured",
+      "applicable": true,
+      "evidence": [
+        "Integrated loudness −14.8 LUFS, no clipping.",
+        "Transcription confidence is high throughout."
+      ],
+      "fix": null
+    },
+    {
+      "id": "on_screen_text",
+      "label": "On-screen text",
+      "score": 4,
+      "weight": 0.1,
+      "weighted_gap": 0.6,
+      "confidence": "medium",
+      "basis": "judged",
+      "applicable": true,
+      "evidence": [
+        "No captions visible in the sampled frames before 0:18; captions appear from 0:18 onwards.",
+        "Captions sit in the bottom 15% of the frame, where app buttons can cover them."
+      ],
+      "fix": "Caption from the first second and move captions above the bottom fifth of the frame."
+    }
+  ],
+  "signals": {
+    "time_to_first_word_s": 0.4,
+    "words_per_minute": 168,
+    "speech_ratio": 0.86,
+    "longest_pause": {
+      "t": 41.0,
+      "duration_s": 1.8
+    },
+    "pauses_over_1s": 3,
+    "cuts": 3,
+    "cuts_per_minute": 2.4,
+    "integrated_loudness_lufs": -14.8,
+    "clipping": false,
+    "transcript_confidence": 0.94
+  },
+  "verification": {
+    "checks_run": 3,
+    "contradictions": []
+  },
+  "provenance": {
+    "model": "<pinned gateway model>",
+    "prompt_version": "v1",
+    "rubric_version": "v1",
+    "pipeline_version": "0.1.0",
+    "judge_calls": 1,
+    "cost_usd": 0.03,
+    "duration_ms": 41000
+  },
+  "error": null
+}
