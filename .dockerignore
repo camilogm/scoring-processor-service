@@ -17,3 +17,6 @@ dataset/
 tests/
 scripts/
 docs/
+quality/
+coverage.xml
+.scannerwork/
