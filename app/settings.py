@@ -26,6 +26,8 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("LLM_API_KEY", "AI_GATEWAY_API_KEY"),
     )
     llm_vision: bool = True
+    # Frames sent to the judge: ~275 tokens each on gemma3, so a 4k-context local model fits about 6.
+    llm_max_frames: int = 16
     llm_json_mode: bool = True
     llm_timeout_s: float = 180.0
     llm_seed: int = 7

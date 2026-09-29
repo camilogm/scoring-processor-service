@@ -684,6 +684,7 @@ uv run pytest                 # unit, API, storage and pipeline tests (need the 
 | `DOCKER_LLM_BASE_URL`                                  | `http://host.docker.internal:11434/v1` | Used by docker compose instead of `LLM_BASE_URL` (`localhost` in a container is the container) |
 | `AI_GATEWAY_API_KEY` / `LLM_API_KEY`                    | `ollama`                    | Never commit it                                                            |
 | `LLM_VISION`                                            | `true`                      | `false` skips frames; on-screen text is then marked not applicable         |
+| `LLM_MAX_FRAMES`                                        | `16`                        | Frame budget: 3 in the hook, a time grid, then frames just after cuts. ~275 tokens each on gemma3, so a 4k-context model fits about 6 |
 | `LLM_JSON_MODE`                                         | `true`                      | Sends `response_format=json_object`; turn off for providers that reject it |
 | `LLM_PRICE_INPUT_PER_MTOK`, `LLM_PRICE_OUTPUT_PER_MTOK` | `0`                         | Cost estimate when the provider doesn't report cost in `usage`             |
 | `WHISPER_MODEL`                                         | `base.en`                   | faster-whisper model, CPU int8                                             |
