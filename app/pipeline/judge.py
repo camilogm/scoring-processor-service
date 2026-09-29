@@ -13,13 +13,15 @@ from typing import Literal
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from app.llm.client import chat
-from app.pipeline.model import ModelOutputError, fmt_ts
+from app.pipeline.model import ModelOutputError
 from app.settings import Settings
 
-PROMPT_VERSION = "v1"
-PROMPT_PATH = Path(__file__).parents[1] / "config" / "prompts" / "judge_v1.md"
+PROMPT_VERSION = "v2"
+PROMPT_PATH = Path(__file__).parents[1] / "config" / "prompts" / "judge_v2.md"
 MAX_ITEMS = 3
 MAX_TRANSCRIPT_CHARS = 12_000
+MAX_LINE_WORDS = 16
+LINE_GAP_S = 1.0
 
 # Signals the judge gets to ground its reading; lists and internals are left out.
 _JUDGE_SIGNALS = (
@@ -61,9 +63,21 @@ class CompletenessJudgement(JudgedDimension):
 
 
 class ShareableLine(BaseModel):
-    t: float
+    t: float | None = None  # replaced by the transcript time in the runner, so never worth failing over
     text: str
     note: str | None = None
+
+    @field_validator("t", mode="before")
+    @classmethod
+    def _seconds(cls, v):
+        if isinstance(v, int | float) or v is None:
+            return v
+        text = str(v).strip().removesuffix("s").strip()
+        try:
+            minutes, _, seconds = text.rpartition(":")
+            return int(minutes or 0) * 60 + float(seconds)
+        except ValueError:
+            return None
 
 
 class Potential(BaseModel):
@@ -107,12 +121,35 @@ def parse_judge_output(raw: str) -> JudgeOutput:
         raise ModelOutputError(f"Model returned JSON that doesn't match the schema: {exc}") from exc
 
 
+def transcript_lines(words: list[dict], segments: list[dict]) -> list[str]:
+    """One line per sentence (or short run of words), each with its own start in seconds.
+
+    Whisper segments can span 10 s, which left the judge guessing times inside them; a single
+    time format also stops it from reading "0:23" back as 0.23.
+    """
+    if not words:
+        return [f"[{s['start']:.1f}s] {s['text']}" for s in segments]
+    lines, current = [], []
+
+    def flush():
+        if current:
+            lines.append(f"[{current[0]['start']:.1f}s] " + "".join(w["word"] for w in current).strip())
+            current.clear()
+
+    for w in words:
+        if current and (len(current) >= MAX_LINE_WORDS or w["start"] - current[-1]["end"] > LINE_GAP_S):
+            flush()
+        current.append(w)
+        if w["word"].strip().endswith((".", "?", "!")):
+            flush()
+    flush()
+    return lines
+
+
 def build_messages(
-    *, segments: list[dict], signals: dict, frames: list[tuple[float, Path]], metadata: dict
+    *, segments: list[dict], words: list[dict], signals: dict, frames: list[tuple[float, Path]], metadata: dict
 ) -> list[dict]:
-    transcript = "\n".join(
-        f"[{fmt_ts(s['start'])}–{fmt_ts(s['end'])} | {s['start']:.1f}s] {s['text']}" for s in segments
-    )[:MAX_TRANSCRIPT_CHARS] or "(no speech detected)"
+    transcript = "\n".join(transcript_lines(words, segments))[:MAX_TRANSCRIPT_CHARS] or "(no speech detected)"
     grounded = {k: signals.get(k) for k in _JUDGE_SIGNALS}
 
     header = (
@@ -145,9 +182,16 @@ def build_messages(
 
 
 def run_judge(
-    settings: Settings, *, segments: list[dict], signals: dict, frames: list[tuple[float, Path]], metadata: dict
+    settings: Settings,
+    *,
+    segments: list[dict],
+    words: list[dict],
+    signals: dict,
+    frames: list[tuple[float, Path]],
+    metadata: dict,
 ) -> JudgeResult:
-    completion = chat(settings, build_messages(segments=segments, signals=signals, frames=frames, metadata=metadata))
+    messages = build_messages(segments=segments, words=words, signals=signals, frames=frames, metadata=metadata)
+    completion = chat(settings, messages)
     return JudgeResult(
         output=parse_judge_output(completion.content),
         model=completion.model,

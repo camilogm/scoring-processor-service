@@ -29,6 +29,7 @@ class VerifySpec(BaseModel):
     late_start_hook_ceiling: int
     boundary_completeness_ceiling: int
     evidence_tolerance_s: float
+    quote_tolerance_s: float
 
 
 class SpeechSpec(BaseModel):

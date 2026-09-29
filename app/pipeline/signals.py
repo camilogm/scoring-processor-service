@@ -1,10 +1,16 @@
 """Deterministic signals derived from the raw extraction. Pure functions, no I/O."""
 
 import re
+from statistics import median
 
-CONJUNCTIONS = frozenset(
-    {"and", "so", "but", "because", "cause", "or", "then", "which", "also", "plus", "anyway", "like"}
+# Openers that continue a previous sentence on their own.
+COORDINATING = frozenset({"and", "so", "but", "cause", "or", "then", "which", "also", "plus", "anyway", "like"})
+# Openers that also start perfectly good sentences ("If you're over 30..."): a weak signal on their own.
+SUBORDINATING = frozenset(
+    {"if", "because", "when", "whenever", "although", "though", "since", "unless", "while", "whereas",
+     "whether", "until", "once", "as", "after", "before"}
 )
+CONJUNCTIONS = COORDINATING | SUBORDINATING
 PAUSE_MIN_S = 1.0
 EDGE_TOLERANCE_S = 0.3
 SPEECH_MERGE_GAP_S = 0.5
@@ -28,6 +34,24 @@ def _speech_time(words: list[dict]) -> float:
     if start is not None:
         total += end - start
     return total
+
+
+def _cut_rhythm(cuts: list[float], duration_s: float) -> dict:
+    """Shot lengths between cuts, so a long static stretch shows up even when the average looks busy."""
+    edges = [0.0, *[c for c in cuts if 0 < c < duration_s], duration_s]
+    shots = [(a, b - a) for a, b in zip(edges, edges[1:])]
+    start, length = max(shots, key=lambda s: s[1])
+    third = duration_s / 3 if duration_s else 0.0
+    per_third = [
+        round(sum(1 for c in cuts if i * third <= c < (i + 1) * third) / (third / 60), 1) if third else 0.0
+        for i in range(3)
+    ]
+    return {
+        "longest_shot": {"t": round(start, 2), "duration_s": round(length, 2)},
+        "static_tail_s": round(duration_s - edges[-2], 2),
+        "median_shot_s": round(median(length for _, length in shots), 2) if cuts else None,
+        "cuts_per_minute_by_third": per_third,
+    }
 
 
 def compute_signals(
@@ -54,6 +78,7 @@ def compute_signals(
 
     span = (last["end"] - first["start"]) if words else 0.0
     first_word = _clean(first["word"]) if first else None
+    opener = (first_word or "").lower()
 
     speech_segments = [s for s in segments if s["end"] > s["start"]]
     seg_time = sum(s["end"] - s["start"] for s in speech_segments)
@@ -69,7 +94,10 @@ def compute_signals(
         "word_count": len(words),
         "time_to_first_word_s": round(first["start"], 2) if first else None,
         "first_word": first_word,
-        "first_word_is_conjunction": bool(first_word) and first_word.lower() in CONJUNCTIONS,
+        "first_word_is_conjunction": opener in CONJUNCTIONS,
+        "first_word_is_subordinating": opener in SUBORDINATING,
+        # Whisper capitalises sentence starts, so a lowercase opener hints at a sentence already under way.
+        "first_word_lowercase": bool(first_word) and first_word[0].islower(),
         "speech_at_start": bool(first) and first["start"] <= EDGE_TOLERANCE_S,
         "speech_at_end": bool(last) and last["end"] >= duration_s - EDGE_TOLERANCE_S,
         "last_word_end_s": round(last["end"], 2) if last else None,
@@ -82,6 +110,7 @@ def compute_signals(
         "cut_count": len(cuts),
         "cuts_per_minute": round(len(cuts) / minutes, 2),
         "cuts_first_3s": sum(1 for c in cuts if c <= 3.0),
+        **_cut_rhythm(cuts, duration_s),
         "loudness_lufs": loudness.get("integrated_lufs"),
         "true_peak_dbtp": loudness.get("true_peak_dbtp"),
         "silence_total_s": round(sum(s["duration_s"] for s in silences), 2),

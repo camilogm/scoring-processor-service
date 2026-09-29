@@ -89,7 +89,8 @@ def test_full_pipeline_produces_documented_contract(app_settings, stubs):
     assert completeness["score"] == 4
     assert body["priority_fixes"][0]["rank"] == 1
     assert body["provenance"]["cost_usd"] == 0.0021
-    assert body["potential"]["shareable_line"]["t"] == 3.0
+    # The judge said 3.0 s; the quote starts at 1.8 s in the word-level transcript.
+    assert body["potential"]["shareable_line"]["t"] == 1.8
     assert body["metadata"]["external_id"] == "C07"
     assert "Capped at 6.0" in report
     # Same clip afterwards comes back from the store, no second model call.
@@ -139,8 +140,23 @@ def test_completed_response_matches_documented_contract(app_settings, stubs):
     assert body["deduplicated"] is False
     assert body["created_at"].endswith("Z")
     assert body["potential"]["caveat"] == CONTRACT["potential"]["caveat"]
-    assert body["provenance"]["prompt_version"] == "v1"
-    assert body["provenance"]["pipeline_version"] == "0.1.0"
+    assert body["provenance"]["prompt_version"] == "v2"
+    assert body["provenance"]["pipeline_version"] == "0.2.0"
     assert isinstance(body["signals"]["cuts"], int)
     assert isinstance(body["signals"]["clipping"], bool)
     assert 0 <= body["signals"]["transcript_confidence"] <= 1
+
+
+def test_shareable_line_missing_from_transcript_is_dropped(app_settings, stubs, monkeypatch):
+    invented = {**JUDGE_JSON, "potential": {**JUDGE_JSON["potential"],
+                                            "shareable_line": {"t": 0.23, "text": "Nobody said this at all.", "note": "x"}}}
+    monkeypatch.setattr("app.pipeline.judge.chat", lambda s, m: llm_client.Completion(
+        json.dumps(invented), "test-model", 1, 1, 0.0))
+    with TestClient(create_app(app_settings)) as c:
+        analysis_id = c.post("/analyses", files={"file": ("c.mp4", FAKE_MP4, "video/mp4")}).json()["id"]
+        state = c.app.state
+        Runner(state.settings, state.store, state.rubric).run(analysis_id)
+        body = c.get(f"/analyses/{analysis_id}").json()
+
+    assert body["status"] == "completed", body["error"]
+    assert body["potential"]["shareable_line"] is None

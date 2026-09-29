@@ -14,7 +14,10 @@ log = logging.getLogger(__name__)
 
 FFMPEG_TIMEOUT_S = 300
 HOOK_FRAME_TIMES = (0.2, 1.5, 2.8)  # dense in the first 3 s
-LATER_FRAME_FRACTIONS = (0.35, 0.65, 0.9)  # sparse after
+FRAME_INTERVAL_S = 6.0  # after the hook, a fixed grid so no stretch goes unseen; it widens to fit the budget
+CUT_FRAME_OFFSET_S = 0.3  # plus a frame just after cuts, to see each new shot
+MIN_FRAME_SPACING_S = 1.0
+MAX_FRAMES = 16  # default budget; every frame costs input tokens (settings.llm_max_frames)
 
 
 @dataclass
@@ -37,7 +40,7 @@ def extract_all(video: Path, duration_s: float, has_audio: bool, workdir: Path, 
         out.silences = detect_silences(video)
     out.cuts = detect_cuts(video)
     if settings.llm_vision:
-        out.frames = sample_frames(video, duration_s, workdir)
+        out.frames = sample_frames(video, frame_times(duration_s, out.cuts, settings.llm_max_frames), workdir)
     return out
 
 
@@ -130,9 +133,32 @@ def detect_cuts(video: Path) -> list[float]:
     return [start.get_seconds() for start, _ in scenes[1:]]
 
 
-def sample_frames(video: Path, duration_s: float, workdir: Path) -> list[tuple[float, Path]]:
-    times = [t for t in HOOK_FRAME_TIMES if t < duration_s]
-    times += [round(duration_s * f, 2) for f in LATER_FRAME_FRACTIONS if duration_s * f > 3.0]
+def frame_times(duration_s: float, cuts: list[float], max_frames: int = MAX_FRAMES) -> list[float]:
+    times = [t for t in HOOK_FRAME_TIMES if t < duration_s][:max_frames]
+    hook_end = HOOK_FRAME_TIMES[-1]
+    # Coverage first: the grid gets two thirds of what's left, post-cut frames the rest.
+    left = max_frames - len(times)
+    grid_slots = left - left // 3
+    if grid_slots <= 0:
+        return times
+    interval = max(FRAME_INTERVAL_S, (duration_s - hook_end) / grid_slots)
+    t = hook_end + interval
+    while t < duration_s - CUT_FRAME_OFFSET_S:
+        times.append(round(t, 2))
+        t += interval
+
+    # Fill the budget with post-cut frames, those farthest from any chosen frame first.
+    candidates = [round(c + CUT_FRAME_OFFSET_S, 2) for c in cuts if c + CUT_FRAME_OFFSET_S < duration_s]
+    while candidates and len(times) < max_frames:
+        distance, best = max((min((abs(c - t) for t in times), default=duration_s), c) for c in candidates)
+        if distance < MIN_FRAME_SPACING_S:
+            break
+        times.append(best)
+        candidates.remove(best)
+    return sorted(times)
+
+
+def sample_frames(video: Path, times: list[float], workdir: Path) -> list[tuple[float, Path]]:
     frames = []
     for i, t in enumerate(times):
         out = workdir / f"frame_{i:02d}.jpg"
