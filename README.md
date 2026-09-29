@@ -472,7 +472,7 @@ Failure reasons stored on `failed` analyses: `extraction_failed`, `model_error`,
 
 ## 13. Storage and durability
 
-**Postgres** (16, run by docker compose with a named volume). Every write is a committed transaction; JSON columns are `JSONB` and timestamps `TIMESTAMPTZ`. The schema is created on startup (`CREATE ... IF NOT EXISTS` behind an advisory lock); a migration tool (Alembic) would come in once the schema starts changing.
+**Postgres** (16, run by docker compose with a named volume). Every write is a committed transaction; JSON columns are `JSONB` and timestamps `TIMESTAMPTZ`. The schema is managed with Alembic migrations written as plain SQL (`app/storage/alembic/versions/`), applied by `make migrate`, or on startup behind an advisory lock when `AUTO_RUN_MIGRATIONS=true` (the default in `example.env` and docker compose; without it the service refuses to start on a database with pending migrations); `make migration m="..."` creates a new one.
 
 ### `analyses` table (draft)
 
@@ -638,7 +638,7 @@ Not used yet: inaSpeechSegmenter, RapidOCR, librosa / Praat-parselmouth, Whisper
 ├── app/
 │   ├── api/            # FastAPI routes and error handlers
 │   ├── pipeline/       # validate, extract, judge, verify, score
-│   ├── storage/        # Postgres access and schema
+│   ├── storage/        # Postgres access and Alembic migrations
 │   ├── llm/            # OpenAI-compatible client wrapper
 │   ├── report/         # Jinja2 templates for the HTML report
 │   └── config/         # rubric.yaml, prompts, settings
@@ -916,7 +916,7 @@ Cut to keep the build inside the 12-hour cap with a real buffer. Each one is a d
 ### Beyond this take-home
 
 - **Workflow engine:** each pipeline stage maps to a Temporal activity or Trigger.dev task, which provides retries, timeouts and recovery for free.
-- **Object storage** (S3 / GCS) for video files, and Alembic migrations for the schema.
+- **Object storage** (S3 / GCS) for video files.
 - **Separate workers** that scale with queue depth.
 - **Learned weights** once hundreds of clips have retention or completion data.
 - **Spanish support**, per-niche or per-client rubric tuning, and use case (a): scoring raw cuts before editing by skipping edit-dependent dimensions.

@@ -8,11 +8,15 @@ Clip Scoring Service: upload a short-form video, get back "post / improve / skip
 
 ## Commands
 
+`make help` lists the Makefile shortcuts for everything below (`make dev`, `make test T=...`, `make migrate`, `make migration m="..."`, `make watch`).
+
 ```bash
 docker compose up -d db                       # Postgres on localhost:5432 — required by the API, runner, openapi and store tests
 uv sync
 uv run uvicorn app.main:app --port 9500       # local run; needs ffmpeg on PATH and an LLM endpoint (Ollama by default)
 docker compose up --build                     # full stack: db + api (ffmpeg included)
+docker compose up --build --watch             # same, syncing app/ into the container and restarting on change (make watch)
+uv run alembic upgrade head                   # apply migrations (or AUTO_RUN_MIGRATIONS=true to do it on startup)
 
 uv run pytest                                 # whole suite; no ffmpeg or model needed (extraction and LLM are stubbed)
 uv run pytest tests/test_store.py::test_concurrent_submissions_of_same_clip_create_one_analysis
@@ -42,7 +46,7 @@ Dimensions have a `basis`: `judged` (LLM), `measured` (code), or `mixed`. The ru
 
 Failures are typed (`app/pipeline/model.py`: `PipelineError` subclasses carry the public `error_code`); anything else becomes `internal_error`.
 
-**Storage** (`app/storage/db.py`): psycopg 3 with a thread-safe `ConnectionPool` shared by request handlers and the worker; every state change is its own committed transaction. JSON columns are `JSONB` (rows come back as dicts, keys still named `*_json`), timestamps `TIMESTAMPTZ`. Schema is created on startup behind an advisory lock; there are no migrations yet.
+**Storage** (`app/storage/db.py`): psycopg 3 with a thread-safe `ConnectionPool` shared by request handlers and the worker; every state change is its own committed transaction. JSON columns are `JSONB` (rows come back as dicts, keys still named `*_json`), timestamps `TIMESTAMPTZ`. Schema changes are Alembic migrations with hand-written SQL in `app/storage/alembic/versions/` (no ORM, no autogenerate); With `AUTO_RUN_MIGRATIONS=true` (set in `example.env` and compose, so evaluators need no extra step) `Store.init` applies pending ones on startup behind a Postgres advisory lock (cross-process) plus a thread lock (`alembic.context` is module-global); with the code default `false` the service refuses to start (`PendingMigrationsError`) until `make migrate` has run. Tests that boot the app pass `auto_run_migrations=True`. `app/storage/migrations.py` hands SQLAlchemy a psycopg `creator`, so key=value DSNs (the test fixture) work too. Never edit an applied migration; add one with `make migration m="..."`.
 
 **Response contract**: `docs/report-example.json` is the source of truth for `GET /analyses/{id}`. `app/api/serialize.py` builds it from a row (formats timestamps as `...Z`, hides internal input fields), `app/api/schemas.py` mirrors it for OpenAPI, and `tests/test_runner.py::test_completed_response_matches_documented_contract` diffs the live shape against the file, so update all three together. The HTML report (`app/report/`) renders the same dict.
 
