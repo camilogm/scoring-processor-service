@@ -45,6 +45,12 @@ class Store:
         with self._tx() as c:
             return c.execute("SELECT * FROM analyses WHERE id = %s", (analysis_id,)).fetchone()
 
+    def list_recent(self, limit: int) -> list[dict]:
+        with self._tx() as c:
+            return c.execute(
+                "SELECT * FROM analyses ORDER BY created_at DESC, id DESC LIMIT %s", (limit,)
+            ).fetchall()
+
     def create_or_get(
         self,
         *,

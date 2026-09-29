@@ -10,11 +10,11 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import ValidationError
 
 from app.api.errors import ApiError
-from app.api.schemas import Analysis, Health, Metadata, error_example
+from app.api.schemas import Analysis, AnalysisList, Health, Metadata, error_example
 from app.api.serialize import to_response
 from app.pipeline import validate
 from app.pipeline.judge import PROMPT_VERSION
-from app.report.render import render_report
+from app.report.render import render_demo, render_report
 from app.settings import PIPELINE_VERSION
 
 router = APIRouter()
@@ -180,6 +180,21 @@ async def create_analysis(
 
 
 @router.get(
+    "/analyses",
+    tags=["analyses"],
+    summary="List recent analyses",
+    response_model=AnalysisList,
+    response_model_exclude_unset=True,
+    responses={**SERVER_ERROR},
+)
+def list_analyses(
+    request: Request,
+    limit: int = Query(50, ge=1, le=200, description="How many analyses to return, newest first."),
+):
+    return {"items": [to_response(row) for row in request.app.state.store.list_recent(limit)]}
+
+
+@router.get(
     "/analyses/{analysis_id}",
     tags=["analyses"],
     summary="Get an analysis: status, result or failure reason",
@@ -208,3 +223,9 @@ def get_analysis(request: Request, analysis_id: str):
 )
 def get_report(request: Request, analysis_id: str):
     return HTMLResponse(render_report(to_response(_get_row(request, analysis_id))))
+
+
+@router.get("/demo", response_class=HTMLResponse, include_in_schema=False)
+def demo():
+    """Minimal page for reviewers: upload a clip, watch the list, open reports. Uses only the public API."""
+    return HTMLResponse(render_demo())

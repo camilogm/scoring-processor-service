@@ -27,3 +27,7 @@ _env.filters["band"] = _band
 
 def render_report(analysis: dict) -> str:
     return _env.get_template("report.html").render(a=analysis)
+
+
+def render_demo() -> str:
+    return _env.get_template("demo.html").render()

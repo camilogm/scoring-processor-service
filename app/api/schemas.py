@@ -147,6 +147,10 @@ class Analysis(BaseModel):
     error: ErrorDetail | None = Field(description="Set only when `status` is `failed`.")
 
 
+class AnalysisList(BaseModel):
+    items: list[Analysis] = Field(description="Most recent first.")
+
+
 class ErrorResponse(BaseModel):
     error: ErrorDetail
 
