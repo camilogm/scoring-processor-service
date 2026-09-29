@@ -1,4 +1,6 @@
+import asyncio
 import json
+import os
 
 import pytest
 from fastapi.testclient import TestClient
@@ -104,6 +106,26 @@ def test_missing_file_is_rejected(client):
     res = client.post("/analyses", data={"metadata": "{}"})
 
     assert res.status_code == 400
+
+
+def test_upload_is_fsynced_off_the_event_loop(client, monkeypatch):
+    # A blocking fsync on the loop thread freezes every other request (even /health) while a
+    # large upload is flushed to disk, so it has to run in a worker thread.
+    calls = []
+    real_fsync = os.fsync
+
+    def spy(fd):
+        try:
+            asyncio.get_running_loop()
+            calls.append("event-loop")
+        except RuntimeError:
+            calls.append("worker-thread")
+        real_fsync(fd)
+
+    monkeypatch.setattr(os, "fsync", spy)
+
+    assert _post(client).status_code == 202
+    assert calls == ["worker-thread"]
 
 
 def test_file_too_large(client):

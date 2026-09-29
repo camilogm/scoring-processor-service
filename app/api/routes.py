@@ -4,6 +4,7 @@ import os
 import tempfile
 from pathlib import Path
 
+import anyio
 from fastapi import APIRouter, File, Form, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -48,9 +49,12 @@ async def _save_upload(upload: UploadFile, dest_dir: Path, max_bytes: int) -> tu
     size = 0
     head = b""
     fd, tmp_name = tempfile.mkstemp(dir=dest_dir, suffix=".part")
+    os.close(fd)
     tmp = Path(tmp_name)
     try:
-        with os.fdopen(fd, "wb") as f:
+        # File I/O goes through worker threads: a blocking write or fsync of a large upload
+        # would otherwise stall every other request on the event loop.
+        async with await anyio.open_file(tmp, "wb") as f:
             while chunk := await upload.read(CHUNK):
                 size += len(chunk)
                 if size > max_bytes:
@@ -58,10 +62,11 @@ async def _save_upload(upload: UploadFile, dest_dir: Path, max_bytes: int) -> tu
                 if len(head) < 16:
                     head += chunk[: 16 - len(head)]
                 sha.update(chunk)
-                f.write(chunk)
-            f.flush()
-            os.fsync(f.fileno())
+                await f.write(chunk)
+            await f.flush()
+            await run_in_threadpool(os.fsync, f.wrapped.fileno())
     except BaseException:
+        # Sync on purpose: on cancellation an await here would be cancelled too and leak the file.
         tmp.unlink(missing_ok=True)
         raise
     return tmp, sha.hexdigest(), size, head
