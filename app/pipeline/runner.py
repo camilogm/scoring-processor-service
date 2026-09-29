@@ -12,7 +12,7 @@ from app.pipeline.measured import score_audio, score_pacing
 from app.pipeline.model import DimensionDraft, PipelineError
 from app.pipeline.score import compute_scores
 from app.pipeline.signals import compute_signals, public_signals
-from app.pipeline.verify import BoundaryFlags, verify
+from app.pipeline.verify import BoundaryFlags, locate_quote, verify
 from app.settings import PIPELINE_VERSION, Settings
 from app.storage.db import Store
 
@@ -70,14 +70,19 @@ class Runner:
 
         self.store.set_step(analysis_id, "judge")
         judged = run_judge(
-            self.settings, segments=extraction.segments, signals=signals, frames=extraction.frames, metadata=metadata
+            self.settings,
+            segments=extraction.segments,
+            words=extraction.words,
+            signals=signals,
+            frames=extraction.frames,
+            metadata=metadata,
         )
 
         self.store.set_step(analysis_id, "verify")
         drafts = self._drafts(judged.output, signals, frames_available=bool(extraction.frames))
         c = judged.output.standalone_completeness
         verification = verify(
-            drafts, signals, BoundaryFlags(c.starts_mid_thought, c.ends_mid_thought), self.rubric
+            drafts, signals, BoundaryFlags(c.starts_mid_thought, c.ends_mid_thought), self.rubric, extraction.words
         )
         if low_speech:
             for dim_id in SPEECH_DIMENSIONS:
@@ -88,8 +93,13 @@ class Runner:
 
         potential = judged.output.potential.model_dump()
         line = potential.get("shareable_line")
-        if line and not 0 <= line["t"] <= duration:
-            potential["shareable_line"] = None  # a quote outside the clip can't be trusted
+        if line:
+            # The time comes from the transcript, never the model (it once wrote 0:23 as 0.23).
+            said_at = locate_quote(line["text"], extraction.words, min_words=1, near=line["t"])
+            if said_at is None:
+                potential["shareable_line"] = None  # a quote that isn't in the clip can't be trusted
+            else:
+                line["t"] = said_at
         potential["caveat"] = POTENTIAL_CAVEAT
 
         result = {

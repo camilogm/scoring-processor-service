@@ -188,9 +188,9 @@
   },
   "provenance": {
     "model": "<pinned gateway model>",
-    "prompt_version": "v1",
-    "rubric_version": "v1",
-    "pipeline_version": "0.1.0",
+    "prompt_version": "v2",
+    "rubric_version": "v2",
+    "pipeline_version": "0.2.0",
     "judge_calls": 1,
     "cost_usd": 0.03,
     "duration_ms": 41000
