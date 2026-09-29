@@ -1,6 +1,6 @@
 # The rubric is a hypothesis: versioned like code, stored with every result.
 # Changing anything here means bumping `version` (it is part of the cache key).
-version: v1
+version: v2
 
 dimensions:
   - id: hook
@@ -42,6 +42,7 @@ verify:
   late_start_hook_ceiling: 4 # on the 0-10 scale
   boundary_completeness_ceiling: 4 # on the 0-10 scale
   evidence_tolerance_s: 0.5
+  quote_tolerance_s: 2.0 # a quoted line may be cited up to this far from where it is said
 
 speech:
   low_speech_ratio: 0.30
