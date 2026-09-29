@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clip report · {{ a.input.filename or a.id }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #ffffff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e6e4df;
+    --good: #2f8f5b; --good-bg: #e5f4ea; --mid: #b7791f; --mid-bg: #fbf0dc; --bad: #c0392b; --bad-bg: #fbe5e2;
+    --na: #9a9aa0; --accent: #3b5bdb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141416; --card: #1d1d20; --ink: #ececef; --muted: #9a9aa3; --line: #2c2c31;
+      --good: #5cc98b; --good-bg: #173222; --mid: #e3a64a; --mid-bg: #33280f; --bad: #ef7266; --bad-bg: #3a1a17;
+      --accent: #8ea2ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 Inter, system-ui, -apple-system, sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 26px; margin: 4px 0 6px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 32px 0 10px; }
+  .clip { color: var(--muted); font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 12px; }
+  .hero { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .score { font-size: 44px; font-weight: 700; line-height: 1; }
+  .score small { font-size: 16px; color: var(--muted); font-weight: 500; }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-weight: 600; font-size: 13px; }
+  .v-post, .good { color: var(--good); background: var(--good-bg); }
+  .v-improve, .mid { color: var(--mid); background: var(--mid-bg); }
+  .v-skip, .bad { color: var(--bad); background: var(--bad-bg); }
+  .na { color: var(--na); }
+  .notice { border-left: 3px solid var(--mid); padding: 8px 12px; background: var(--mid-bg); border-radius: 6px; margin-top: 12px; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  ul { margin: 6px 0 0; padding-left: 18px; }
+  li { margin: 3px 0; }
+  .fix-rank { font-weight: 700; color: var(--accent); margin-right: 6px; }
+  .dim-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .dim-head strong { font-size: 16px; }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; margin: 8px 0 10px; overflow: hidden; }
+  .bar span { display: block; height: 100%; border-radius: 3px; }
+  .bar .good { background: var(--good); } .bar .mid { background: var(--mid); } .bar .bad { background: var(--bad); }
+  .meta { color: var(--muted); font-size: 12px; }
+  .fix { margin-top: 8px; font-size: 14px; }
+  .fix b { color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { color: var(--muted); width: 45%; }
+  blockquote { margin: 8px 0 0; padding-left: 12px; border-left: 3px solid var(--accent); font-style: italic; }
+  footer { margin-top: 32px; color: var(--muted); font-size: 12px; }
+  code { font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="clip">
+    {{ a.input.filename or "clip" }}{% if a.metadata.account %} · {{ a.metadata.account }}{% endif %}
+    {% if a.input.duration_s %} · {{ a.input.duration_s | mmss }}{% endif %}
+    {% if a.metadata.external_id %} · {{ a.metadata.external_id }}{% endif %}
+  </div>
+
+{% if a.status != "completed" %}
+  <h1>Analysis {{ a.status }}</h1>
+  <div class="card">
+    <p>Status: <span class="pill {{ 'v-skip' if a.status == 'failed' else 'v-improve' }}">{{ a.status }}</span>
+      {% if a.current_step %} · step <code>{{ a.current_step }}</code>{% endif %}</p>
+    {% if a.error %}<p><strong>{{ a.error.code }}</strong>: {{ a.error.message }}</p>{% endif %}
+    {% if a.status in ("queued", "processing") %}<p class="meta">Refresh this page to see progress.</p>{% endif %}
+  </div>
+{% else %}
+  {% set o = a.overall %}
+  <h1>{{ o.verdict_label }}</h1>
+  <div class="card">
+    <div class="hero">
+      <div class="score">{{ "%.1f" | format(o.score) }}<small> / 10</small></div>
+      <div>
+        <span class="pill v-{{ o.verdict }}">{{ o.verdict }}</span>
+        <p style="margin:8px 0 0">{{ o.summary }}</p>
+      </div>
+    </div>
+    {% if o.capped %}<div class="notice"><strong>Capped at 6.0.</strong> {{ o.cap_reason }}</div>{% endif %}
+    {% if a.mode == "low_speech" %}<div class="notice">Little speech detected: speech-based scores have low confidence.</div>{% endif %}
+  </div>
+
+  <h2>The clip's point</h2>
+  <div class="card">{{ o.point }}</div>
+
+  <h2>Viral potential</h2>
+  <div class="grid">
+    <div class="card"><strong>What helps it travel</strong>
+      <ul>{% for h in a.potential.helps %}<li>{{ h }}</li>{% else %}<li class="na">Nothing stood out.</li>{% endfor %}</ul>
+    </div>
+    <div class="card"><strong>What holds it back</strong>
+      <ul>{% for h in a.potential.holds_back %}<li>{{ h }}</li>{% else %}<li class="na">Nothing major.</li>{% endfor %}</ul>
+    </div>
+  </div>
+  {% if a.potential.shareable_line %}
+  <div class="card"><strong>Most shareable line</strong> <span class="meta">at {{ a.potential.shareable_line.t | mmss }}</span>
+    <blockquote>“{{ a.potential.shareable_line.text }}”</blockquote>
+    {% if a.potential.shareable_line.note %}<p class="meta">{{ a.potential.shareable_line.note }}</p>{% endif %}
+  </div>
+  {% endif %}
+  <p class="meta">{{ a.potential.caveat }}</p>
+
+  <h2>What to fix first</h2>
+  <div class="card">
+    {% for f in a.priority_fixes %}
+      <p style="margin:6px 0"><span class="fix-rank">{{ f.rank }}</span><strong>{{ f.label }}</strong>: {{ f.fix }}
+        <span class="meta">(up to +{{ "%.2f" | format(f.weighted_gap) }} points)</span></p>
+    {% else %}
+      <p>Nothing needs fixing.</p>
+    {% endfor %}
+  </div>
+
+  <h2>Dimensions</h2>
+  {% for d in a.dimensions %}
+  <div class="card">
+    <div class="dim-head">
+      <strong>{{ d.label }}</strong>
+      {% if d.applicable %}<span class="pill {{ d.score | band }}">{{ d.score }} / 10</span>{% else %}<span class="pill na">n/a</span>{% endif %}
+    </div>
+    {% if d.applicable %}<div class="bar"><span class="{{ d.score | band }}" style="width: {{ d.score * 10 }}%"></span></div>{% endif %}
+    <div class="meta">weight {{ d.weight | pct }} · confidence {{ d.confidence }} · {{ d.basis }}</div>
+    <ul>{% for e in d.evidence %}<li>{{ e }}</li>{% endfor %}</ul>
+    {% if d.fix %}<div class="fix"><b>Fix:</b> {{ d.fix }}</div>{% endif %}
+  </div>
+  {% endfor %}
+
+  {% if a.verification.contradictions %}
+  <h2>Verification</h2>
+  <div class="card">
+    <p class="meta">{{ a.verification.checks_run }} checks run against the measurements.</p>
+    <ul>{% for c in a.verification.contradictions %}<li><code>{{ c.rule }}</code> · {{ c.message }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <h2>Measured signals</h2>
+  {% set s = a.signals %}
+  <div class="card">
+    <table>
+      <tr><td>Time to first word</td><td>{{ s.time_to_first_word_s if s.time_to_first_word_s is not none else "–" }} s</td></tr>
+      <tr><td>Words per minute</td><td>{{ s.words_per_minute }}</td></tr>
+      <tr><td>Speech ratio</td><td>{{ s.speech_ratio | pct }}</td></tr>
+      <tr><td>Pauses over 1 s</td><td>{{ s.pauses_over_1s }}{% if s.longest_pause %} (longest {{ s.longest_pause.duration_s }} s at {{ s.longest_pause.t | mmss }}){% endif %}</td></tr>
+      <tr><td>Cuts</td><td>{{ s.cuts }} ({{ s.cuts_per_minute }} per minute)</td></tr>
+      <tr><td>Integrated loudness</td><td>{{ s.integrated_loudness_lufs if s.integrated_loudness_lufs is not none else "–" }} LUFS · {{ "clipping" if s.clipping else "no clipping" }}</td></tr>
+      <tr><td>Transcript confidence</td><td>{{ s.transcript_confidence | pct if s.transcript_confidence is not none else "–" }}</td></tr>
+    </table>
+  </div>
+
+  <footer>
+    {% set p = a.provenance %}
+    {{ a.source }} · model <code>{{ p.model }}</code> · prompt {{ p.prompt_version }} · rubric {{ p.rubric_version }}
+    · pipeline {{ p.pipeline_version }} · {{ p.judge_calls }} judge call · ${{ "%.4f" | format(p.cost_usd) }}
+    · {{ "%.1f" | format(p.duration_ms / 1000) }} s · <code>{{ a.id }}</code>
+  </footer>
+{% endif %}
+</main>
+</body>
+</html>
