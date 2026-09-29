@@ -111,7 +111,8 @@ class JudgeResult:
 
 
 def parse_judge_output(raw: str) -> JudgeOutput:
-    text = re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip()
+    text = re.sub(r"^```(?:json)?", "", raw.strip(), flags=re.MULTILINE)
+    text = re.sub(r"```$", "", text, flags=re.MULTILINE).strip()
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end <= start:
         raise ModelOutputError(f"Model did not return JSON: {raw[:200]!r}")

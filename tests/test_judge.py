@@ -31,6 +31,12 @@ def test_parses_json_wrapped_in_markdown_fence():
     assert out.potential.helps == ["a", "b", "c"]  # trimmed to 3
 
 
+def test_parses_json_in_a_bare_fence():
+    raw = "```\n" + json.dumps(_payload()) + "\n```"
+
+    assert parse_judge_output(raw).hook.score == 4
+
+
 def test_clamps_and_rounds_scores():
     raw = json.dumps(_payload(hook={"evidence": [], "score": 7.4, "fix": None, "confidence": "HIGH"}))
 
