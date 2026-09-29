@@ -1,0 +1,47 @@
+# The rubric is a hypothesis: versioned like code, stored with every result.
+# Changing anything here means bumping `version` (it is part of the cache key).
+version: v1
+
+dimensions:
+  - id: hook
+    label: Hook
+    weight: 0.25
+    basis: mixed
+  - id: standalone_completeness
+    label: Standalone completeness
+    weight: 0.20
+    basis: mixed
+  - id: clarity_payoff
+    label: Message clarity and payoff
+    weight: 0.20
+    basis: judged
+  - id: pacing_energy
+    label: Pacing and energy
+    weight: 0.15
+    basis: measured
+  - id: audio_quality
+    label: Audio and speech quality
+    weight: 0.10
+    basis: measured
+  - id: on_screen_text
+    label: On-screen text
+    weight: 0.10
+    basis: judged
+
+verdicts:
+  post: { min_score: 7.0, label: Ready to post }
+  improve: { min_score: 5.0, label: Improve before posting }
+  skip: { min_score: 0.0, label: Not worth the editing time }
+
+# Starts or ends mid-sentence: can never be recommended as is.
+cap:
+  max_score: 6.0
+
+verify:
+  late_start_s: 4.0
+  late_start_hook_ceiling: 4 # on the 0-10 scale
+  boundary_completeness_ceiling: 4 # on the 0-10 scale
+  evidence_tolerance_s: 0.5
+
+speech:
+  low_speech_ratio: 0.30
