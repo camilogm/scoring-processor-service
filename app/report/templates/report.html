@@ -49,8 +49,8 @@
   .fix { margin-top: 8px; font-size: 14px; }
   .fix b { color: var(--accent); }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  td { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  td:first-child { color: var(--muted); width: 45%; }
+  th, td { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); width: 45%; font-weight: normal; text-align: left; }
   blockquote { margin: 8px 0 0; padding-left: 12px; border-left: 3px solid var(--accent); font-style: italic; }
   footer { margin-top: 32px; color: var(--muted); font-size: 12px; }
   code { font-size: 12px; }
@@ -143,13 +143,13 @@
   {% set s = a.signals %}
   <div class="card">
     <table>
-      <tr><td>Time to first word</td><td>{{ s.time_to_first_word_s if s.time_to_first_word_s is not none else "–" }} s</td></tr>
-      <tr><td>Words per minute</td><td>{{ s.words_per_minute }}</td></tr>
-      <tr><td>Speech ratio</td><td>{{ s.speech_ratio | pct }}</td></tr>
-      <tr><td>Pauses over 1 s</td><td>{{ s.pauses_over_1s }}{% if s.longest_pause %} (longest {{ s.longest_pause.duration_s }} s at {{ s.longest_pause.t | mmss }}){% endif %}</td></tr>
-      <tr><td>Cuts</td><td>{{ s.cuts }} ({{ s.cuts_per_minute }} per minute)</td></tr>
-      <tr><td>Integrated loudness</td><td>{{ s.integrated_loudness_lufs if s.integrated_loudness_lufs is not none else "–" }} LUFS · {{ "clipping" if s.clipping else "no clipping" }}</td></tr>
-      <tr><td>Transcript confidence</td><td>{{ s.transcript_confidence | pct if s.transcript_confidence is not none else "–" }}</td></tr>
+      <tr><th scope="row">Time to first word</th><td>{{ s.time_to_first_word_s if s.time_to_first_word_s is not none else "–" }} s</td></tr>
+      <tr><th scope="row">Words per minute</th><td>{{ s.words_per_minute }}</td></tr>
+      <tr><th scope="row">Speech ratio</th><td>{{ s.speech_ratio | pct }}</td></tr>
+      <tr><th scope="row">Pauses over 1 s</th><td>{{ s.pauses_over_1s }}{% if s.longest_pause %} (longest {{ s.longest_pause.duration_s }} s at {{ s.longest_pause.t | mmss }}){% endif %}</td></tr>
+      <tr><th scope="row">Cuts</th><td>{{ s.cuts }} ({{ s.cuts_per_minute }} per minute)</td></tr>
+      <tr><th scope="row">Integrated loudness</th><td>{{ s.integrated_loudness_lufs if s.integrated_loudness_lufs is not none else "–" }} LUFS · {{ "clipping" if s.clipping else "no clipping" }}</td></tr>
+      <tr><th scope="row">Transcript confidence</th><td>{{ s.transcript_confidence | pct if s.transcript_confidence is not none else "–" }}</td></tr>
     </table>
   </div>
 
