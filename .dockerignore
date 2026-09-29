@@ -1,0 +1,19 @@
+# Keep the build context small: every watch rebuild sends it to the daemon.
+.git/
+.venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Runtime data and media (uploads, Whisper models, datasets) are mounted, never baked in.
+var/
+data/
+dataset/
+
+# Secrets come in at runtime through env_file.
+.env
+
+tests/
+scripts/
+docs/
