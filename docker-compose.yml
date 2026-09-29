@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: clip
+      POSTGRES_PASSWORD: clip
+      POSTGRES_DB: clip_scoring
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clip -d clip_scoring"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      # Analyses survive restarts and kill -9.
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    ports:
+      - "9500:9500"
+    env_file: .env
+    environment:
+      DATA_DIR: /app/var
+      # .env's DATABASE_URL points at localhost for local runs; inside the network the host is "db".
+      DATABASE_URL: postgresql://clip:clip@db:5432/clip_scoring
+      # Inside the container "localhost" is the container itself, so .env's LLM_BASE_URL
+      # (meant for local runs) can't be reused here. Compose also reads .env for ${...},
+      # hence a separate variable. Default: Ollama on the host.
+      LLM_BASE_URL: ${DOCKER_LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Uploads and the Whisper model cache survive restarts.
+      - ./var:/app/var
+
+volumes:
+  pgdata:
