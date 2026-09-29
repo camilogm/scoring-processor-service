@@ -6,6 +6,9 @@ from app.pipeline.model import fmt_ts
 from app.pipeline.signals import CLIPPING_DBTP
 
 TARGET_LUFS = -14.0
+RHYTHM_MIN_CUTS = 3  # fewer cuts than this is a static format, not an edit rhythm
+STATIC_SHOT_MIN_S, STATIC_SHOT_RATIO = 8.0, 3.0
+STATIC_SHOT_SEVERE_S, STATIC_SHOT_SEVERE_RATIO = 10.0, 5.0
 
 
 @dataclass
@@ -68,9 +71,27 @@ def score_pacing(s: dict) -> MeasuredScore:
         score -= 1
 
     # Cuts weigh lightly so static podcast cameras aren't punished for the format.
-    evidence.append(f"{s['cuts_per_minute']:.1f} cuts per minute.")
+    thirds = s.get("cuts_per_minute_by_third")
+    by_third = f" ({' / '.join(f'{c:.0f}' for c in thirds)} by third)" if thirds and s.get("cut_count") else ""
+    evidence.append(f"{s['cuts_per_minute']:.1f} cuts per minute{by_third}.")
     if s["duration_s"] >= 30 and s["cuts_per_minute"] == 0:
         score -= 0.5
+
+    # What hurts is a static stretch in a clip that set a faster rhythm, not a static format.
+    shot, typical = s.get("longest_shot"), s.get("median_shot_s")
+    if shot and typical and s.get("cut_count", 0) >= RHYTHM_MIN_CUTS:
+        length, start = shot["duration_s"], shot["t"]
+        ratio = length / typical
+        if length >= STATIC_SHOT_MIN_S and ratio >= STATIC_SHOT_RATIO:
+            score -= 2 if length >= STATIC_SHOT_SEVERE_S and ratio >= STATIC_SHOT_SEVERE_RATIO else 1
+            at_tail = start + length >= s["duration_s"] - 0.05
+            where = f"the last {length:.1f} s, from {fmt_ts(start)}" if at_tail else f"{length:.1f} s from {fmt_ts(start)}"
+            evidence.append(f"No cut for {where} (typical shot {typical:.1f} s).")
+            fixes.insert(
+                0,
+                f"Break up the {length:.1f} s static shot at {fmt_ts(start)}–{fmt_ts(start + length)} "
+                "with b-roll, a punch-in or a text card.",
+            )
 
     return _finish(score, evidence, fixes)
 
