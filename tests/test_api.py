@@ -184,3 +184,39 @@ def test_restart_marks_unfinished_runs_as_interrupted(settings, probe_ok):
 
     assert body["status"] == "failed"
     assert body["error"]["code"] == "interrupted_by_restart"
+
+
+def test_list_returns_recent_analyses_newest_first(client):
+    first = _post(client, filename="a.mp4").json()["id"]
+    second = _post(client, content=FAKE_MP4 + b"\x01", filename="b.mp4").json()["id"]
+
+    res = client.get("/analyses")
+
+    assert res.status_code == 200
+    items = res.json()["items"]
+    assert [a["id"] for a in items] == [second, first]
+    assert items[0]["status"] == "queued"
+    assert items[0]["input"]["filename"] == "b.mp4"
+
+
+def test_list_respects_limit(client):
+    for i in range(3):
+        _post(client, content=FAKE_MP4 + bytes([i]))
+
+    assert len(client.get("/analyses", params={"limit": 2}).json()["items"]) == 2
+
+
+def test_list_is_empty_without_analyses(client):
+    assert client.get("/analyses").json() == {"items": []}
+
+
+def test_demo_page_uploads_lists_and_links_reports(client):
+    res = client.get("/demo")
+
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("text/html")
+    html = res.text
+    # The page is a thin client over the public API, nothing more.
+    assert 'type="file"' in html
+    assert "/analyses" in html
+    assert "/report" in html

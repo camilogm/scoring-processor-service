@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clip Scoring Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #ffffff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e6e4df;
+    --good: #2f8f5b; --good-bg: #e5f4ea; --mid: #b7791f; --mid-bg: #fbf0dc; --bad: #c0392b; --bad-bg: #fbe5e2;
+    --na: #9a9aa0; --na-bg: #efeeea; --accent: #3b5bdb; --accent-ink: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141416; --card: #1d1d20; --ink: #ececef; --muted: #9a9aa3; --line: #2c2c31;
+      --good: #5cc98b; --good-bg: #173222; --mid: #e3a64a; --mid-bg: #33280f; --bad: #ef7266; --bad-bg: #3a1a17;
+      --na-bg: #26262a; --accent: #8ea2ff; --accent-ink: #10131f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 Inter, system-ui, -apple-system, sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 26px; margin: 4px 0 6px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0; }
+  a { color: var(--accent); }
+  .lede { color: var(--muted); margin: 0 0 24px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
+  .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { form { grid-template-columns: 1fr; } }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 500; }
+  .full { grid-column: 1 / -1; }
+  input[type=text], select, input[type=file] {
+    font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-height: 40px;
+  }
+  .check { flex-direction: row; align-items: center; gap: 8px; }
+  .actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  button { font: inherit; font-weight: 600; border-radius: 8px; padding: 8px 16px; min-height: 40px; cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button:disabled { opacity: .6; cursor: progress; }
+  .msg { font-size: 14px; }
+  .msg.ok { color: var(--good); } .msg.err { color: var(--bad); }
+  .muted { color: var(--muted); font-size: 13px; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; white-space: nowrap; }
+  .s-completed, .v-post { color: var(--good); background: var(--good-bg); }
+  .s-processing, .s-queued, .v-improve { color: var(--mid); background: var(--mid-bg); }
+  .s-failed, .v-skip { color: var(--bad); background: var(--bad-bg); }
+  ul.list { list-style: none; margin: 0; padding: 0; }
+  ul.list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+  ul.list li:first-child { border-top: 0; }
+  .name { font-weight: 600; overflow-wrap: anywhere; }
+  .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .links { display: flex; gap: 12px; align-items: center; font-size: 14px; font-weight: 500; }
+  .err-text { color: var(--bad); font-size: 13px; grid-column: 1 / -1; }
+  .empty { color: var(--muted); padding: 12px 0; margin: 0; }
+  .score { font-weight: 700; color: var(--ink); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Clip Scoring · Demo</h1>
+  <p class="lede">Upload an MP4, watch it move through the pipeline, open the report. This page only calls the public API
+    (<a href="/docs">see /docs</a>).</p>
+
+  <section class="card" aria-labelledby="upload-h">
+    <div class="head"><h2 id="upload-h">New analysis</h2></div>
+    <form id="upload">
+      <label class="full">Clip (MP4)
+        <input type="file" name="file" accept="video/mp4" required>
+      </label>
+      <label>Title <span class="muted">(optional, reaches the judge)</span>
+        <input type="text" name="title" autocomplete="off">
+      </label>
+      <label>Platform <span class="muted">(optional)</span>
+        <select name="platform">
+          <option value="">—</option>
+          <option value="tiktok">TikTok</option>
+          <option value="instagram">Instagram</option>
+          <option value="youtube_shorts">YouTube Shorts</option>
+        </select>
+      </label>
+      <label class="check full"><input type="checkbox" name="fresh"> Force a fresh analysis (skip deduplication)</label>
+      <div class="actions full">
+        <button class="primary" type="submit">Upload and analyse</button>
+        <span id="upload-msg" class="msg" role="status" aria-live="polite"></span>
+      </div>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="list-h">
+    <div class="head">
+      <h2 id="list-h">Analyses</h2>
+      <div class="actions">
+        <label class="check muted"><input type="checkbox" id="auto" checked> Auto-refresh while running</label>
+        <button type="button" id="refresh">Refresh</button>
+      </div>
+    </div>
+    <ul class="list" id="list" aria-live="polite"></ul>
+    <p class="muted" id="updated"></p>
+  </section>
+</main>
+<script>
+{% raw %}
+const $ = (sel) => document.querySelector(sel);
+const POLL_MS = 4000;
+let timer = null;
+
+function el(tag, props = {}, children = []) {
+  const node = Object.assign(document.createElement(tag), props);
+  for (const child of [].concat(children)) if (child != null) node.append(child);
+  return node;
+}
+
+function when(iso) {
+  return iso ? new Date(iso).toLocaleString() : "";
+}
+
+function row(a) {
+  const name = a.metadata?.title || a.input?.filename || a.id;
+  const status = a.status === "processing" && a.current_step ? `processing · ${a.current_step}` : a.status;
+  const meta = [
+    el("span", { className: `pill s-${a.status}`, textContent: status }),
+  ];
+  if (a.overall) {
+    meta.push(el("span", { className: `pill v-${a.overall.verdict}`, textContent: a.overall.verdict_label || a.overall.verdict }));
+    meta.push(el("span", { className: "score", textContent: `${a.overall.score} / 10` }));
+  }
+  meta.push(el("span", { textContent: when(a.created_at) }));
+
+  const report = el("a", { href: `/analyses/${encodeURIComponent(a.id)}/report`, target: "_blank", rel: "noopener", textContent: "Report" });
+  const json = el("a", { href: `/analyses/${encodeURIComponent(a.id)}`, target: "_blank", rel: "noopener", textContent: "JSON" });
+
+  return el("li", {}, [
+    el("div", {}, [el("div", { className: "name", textContent: name }), el("div", { className: "meta" }, meta)]),
+    el("div", { className: "links" }, [report, json]),
+    a.error ? el("div", { className: "err-text", textContent: `${a.error.code}: ${a.error.message}` }) : null,
+  ]);
+}
+
+async function load() {
+  const btn = $("#refresh");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/analyses?limit=50", { headers: { Accept: "application/json" } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { items } = await res.json();
+    const list = $("#list");
+    list.replaceChildren(...(items.length ? items.map(row) : [el("p", { className: "empty", textContent: "No analyses yet. Upload a clip above." })]));
+    $("#updated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+    schedule(items.some((a) => a.status === "queued" || a.status === "processing"));
+  } catch (err) {
+    $("#updated").textContent = `Could not load analyses: ${err.message}`;
+    schedule(false);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function schedule(running) {
+  clearTimeout(timer);
+  if (running && $("#auto").checked) timer = setTimeout(load, POLL_MS);
+}
+
+$("#refresh").addEventListener("click", load);
+$("#auto").addEventListener("change", load);
+
+$("#upload").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = form.querySelector("button[type=submit]");
+  const msg = $("#upload-msg");
+  const metadata = {};
+  const f = form.elements;
+  if (f.title.value.trim()) metadata.title = f.title.value.trim();
+  if (f.platform.value) metadata.platform = f.platform.value;
+
+  const body = new FormData();
+  body.append("file", f.file.files[0]);
+  if (Object.keys(metadata).length) body.append("metadata", JSON.stringify(metadata));
+
+  submit.disabled = true;
+  msg.className = "msg";
+  msg.textContent = "Uploading…";
+  try {
+    const res = await fetch(`/analyses${f.fresh.checked ? "?fresh=true" : ""}`, { method: "POST", body });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ? `${data.error.code}: ${data.error.message}` : `HTTP ${res.status}`);
+    msg.className = "msg ok";
+    msg.textContent = data.deduplicated
+      ? `Same clip already analysed (${data.status}), reusing ${data.id}.`
+      : `Queued as ${data.id}.`;
+    form.reset();
+    load();
+  } catch (err) {
+    msg.className = "msg err";
+    msg.textContent = err.message;
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+load();
+{% endraw %}
+</script>
+</body>
+</html>
