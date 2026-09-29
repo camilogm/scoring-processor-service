@@ -37,7 +37,8 @@ JUDGE_JSON = {
 @pytest.fixture
 def app_settings(tmp_path, database_url):
     return Settings(
-        data_dir=tmp_path, database_url=database_url, run_worker=False, _env_file=None, llm_model="test-model"
+        data_dir=tmp_path, database_url=database_url, run_worker=False, _env_file=None, llm_model="test-model",
+        auto_run_migrations=True,
     )
 
 

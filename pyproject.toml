@@ -17,6 +17,7 @@ dependencies = [
     "opencv-python-headless>=4.10",
     "psycopg[binary]>=3.2",
     "psycopg-pool>=3.2",
+    "alembic>=1.13",
 ]
 
 [dependency-groups]

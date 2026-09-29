@@ -23,7 +23,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         settings.ensure_dirs()
         store = Store(settings.database_url)
-        store.init()
+        store.init(auto_migrate=settings.auto_run_migrations)
         if swept := store.sweep_interrupted():
             log.warning("marked %d unfinished analyses as interrupted_by_restart", swept)
 

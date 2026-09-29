@@ -14,7 +14,8 @@ FAKE_MP4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64
 @pytest.fixture
 def settings(tmp_path, database_url):
     return Settings(
-        data_dir=tmp_path, database_url=database_url, run_worker=False, max_upload_mb=1, _env_file=None
+        data_dir=tmp_path, database_url=database_url, run_worker=False, max_upload_mb=1, auto_run_migrations=True,
+        _env_file=None,
     )
 
 

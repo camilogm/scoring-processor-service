@@ -8,43 +8,9 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
+from app.storage.migrations import ensure_up_to_date, migrate
+
 LIVE_STATUSES = ("queued", "processing", "completed")
-
-# Arbitrary key: serializes schema creation when several processes start at once.
-_SCHEMA_LOCK = 7_401_223
-
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS analyses (
-    id               TEXT PRIMARY KEY,
-    status           TEXT NOT NULL CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
-    current_step     TEXT,
-    external_id      TEXT,
-    file_sha256      TEXT NOT NULL,
-    file_path        TEXT NOT NULL,
-    cache_key        TEXT NOT NULL,
-    fresh            BOOLEAN NOT NULL DEFAULT FALSE,
-    input_json       JSONB NOT NULL,
-    metadata_json    JSONB NOT NULL,
-    result_json      JSONB,
-    error_code       TEXT,
-    error_message    TEXT,
-    model_id         TEXT,
-    prompt_version   TEXT,
-    rubric_version   TEXT,
-    pipeline_version TEXT,
-    cost_usd         DOUBLE PRECISION,
-    duration_ms      INTEGER,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    started_at       TIMESTAMPTZ,
-    finished_at      TIMESTAMPTZ
-);
-
--- One live analysis per clip: the database, not app code, decides who wins a race.
--- Failed rows and fresh=true runs fall outside the index.
-CREATE UNIQUE INDEX IF NOT EXISTS one_live_analysis_per_clip
-    ON analyses (cache_key)
-    WHERE status IN ('queued', 'processing', 'completed') AND NOT fresh;
-"""
 
 
 def new_id() -> str:
@@ -54,6 +20,7 @@ def new_id() -> str:
 
 class Store:
     def __init__(self, database_url: str):
+        self.database_url = database_url
         # Thread-safe: shared by request handlers and the worker thread.
         self.pool = ConnectionPool(
             database_url, min_size=1, max_size=10, kwargs={"row_factory": dict_row}, open=False
@@ -64,11 +31,12 @@ class Store:
         with self.pool.connection() as conn:  # commits on success, rolls back on error
             yield conn
 
-    def init(self) -> None:
+    def init(self, *, auto_migrate: bool) -> None:
         self.pool.open(wait=True, timeout=10)
-        with self._tx() as c:
-            c.execute("SELECT pg_advisory_xact_lock(%s)", (_SCHEMA_LOCK,))
-            c.execute(SCHEMA)
+        if auto_migrate:
+            migrate(self.database_url)
+        else:
+            ensure_up_to_date(self.database_url)
 
     def close(self) -> None:
         self.pool.close()

@@ -12,7 +12,9 @@ CONTRACT = json.loads((Path(__file__).parents[1] / "docs" / "report-example.json
 
 @pytest.fixture
 def client(tmp_path, database_url):
-    settings = Settings(data_dir=tmp_path, database_url=database_url, run_worker=False, _env_file=None)
+    settings = Settings(data_dir=tmp_path, database_url=database_url, run_worker=False, auto_run_migrations=True,
+        _env_file=None,
+    )
     with TestClient(create_app(settings)) as c:
         yield c
 
