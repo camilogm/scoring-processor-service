@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql://clip:clip@localhost:5432/clip_scoring"
+    # Off: the service refuses to start until `make migrate` has run. On: it migrates on startup.
+    auto_run_migrations: bool = False
     data_dir: Path = Path("var")
     max_upload_mb: int = 200
     max_duration_s: float = 240.0

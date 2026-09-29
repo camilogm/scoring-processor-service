@@ -8,7 +8,7 @@ from app.storage.db import Store
 @pytest.fixture
 def store(database_url):
     s = Store(database_url)
-    s.init()
+    s.init(auto_migrate=True)
     yield s
     s.close()
 
@@ -30,7 +30,7 @@ def _create(store, cache_key="k1", fresh=False):
 
 
 def test_init_is_idempotent(store):
-    store.init()
+    store.init(auto_migrate=True)
 
 
 def test_json_columns_round_trip_as_dicts(store):
