@@ -1,6 +1,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help install db db-stop db-shell run dev test lint migrate migration downgrade db-current db-history \
-        up down watch build logs ps restart-check repeatability clean
+        up down watch build logs ps restart-check repeatability clean \
+        coverage sonar-up sonar-scan sonar-report sonar-open sonar-down sonar-clean
 
 PORT ?= 9500
 RUNS ?= 5
@@ -84,6 +85,57 @@ repeatability: ## Score stability: make repeatability CLIP=path/to/clip.mp4 RUNS
 	@test -n "$(CLIP)" || (echo 'usage: make repeatability CLIP=path/to/clip.mp4' && exit 1)
 	uv run python scripts/repeatability.py $(CLIP) --runs $(RUNS)
 
+# --- Quality (SonarQube) -------------------------------------------------------------------
+# A real SonarQube, run locally, so the quality numbers quoted anywhere in this repo can be
+# reproduced instead of trusted. Separate compose project from the app stack on purpose (see
+# quality/docker-compose.yml): `make down` never touches the analysis history.
+
+QUALITY       := quality
+SONAR_URL     ?= http://localhost:9002
+SONAR_NET     := scoring-quality_default
+SONAR_TOKEN    = $(shell cat $(QUALITY)/.sonar-token 2>/dev/null)
+SONAR_COMPOSE := $(COMPOSE) -f $(QUALITY)/docker-compose.yml
+
+coverage: db ## Run the tests with coverage (coverage.xml for Sonar, summary in the terminal)
+	uv run pytest --cov --cov-report=xml --cov-report=term $(T)
+
+sonar-up: ## Start the local SonarQube and provision an analysis token
+	SONAR_URL=$(SONAR_URL) ./$(QUALITY)/sonar-up.sh
+
+sonar-scan: coverage ## Analyse the code with coverage and print the report
+	@test -n "$(SONAR_TOKEN)" || (echo "no analysis token — run: make sonar-up" && exit 1)
+	@# Runs on SonarQube's own compose network and addresses it by service name: a container
+	@# cannot reach the host's published port on macOS. coverage.xml carries repo-relative
+	@# paths (relative_files in pyproject.toml), which is what makes it match under /usr/src.
+	docker run --rm \
+		--network $(SONAR_NET) \
+		-e SONAR_HOST_URL="http://sonarqube:9000" \
+		-e SONAR_TOKEN="$(SONAR_TOKEN)" \
+		-v "$(CURDIR):/usr/src" \
+		sonarsource/sonar-scanner-cli \
+		-Dsonar.projectKey=scoring-processor-service \
+		-Dsonar.projectName="Scoring Processor Service" \
+		-Dsonar.sources=app,scripts \
+		-Dsonar.tests=tests \
+		-Dsonar.exclusions="**/__pycache__/**" \
+		-Dsonar.python.version=3.12 \
+		-Dsonar.python.coverage.reportPaths=coverage.xml \
+		-Dsonar.sourceEncoding=UTF-8
+	@$(MAKE) --no-print-directory sonar-report
+
+sonar-report: ## Print the SonarQube quality report
+	@SONAR_URL=$(SONAR_URL) ./$(QUALITY)/sonar-report.py
+
+sonar-open: ## Open the SonarQube dashboard
+	@open $(SONAR_URL)/dashboard?id=scoring-processor-service 2>/dev/null || echo "$(SONAR_URL)"
+
+sonar-down: ## Stop SonarQube, keeping its analysis history
+	$(SONAR_COMPOSE) down
+
+sonar-clean: ## Stop SonarQube and delete its volumes and token
+	$(SONAR_COMPOSE) down --volumes
+	@rm -f $(QUALITY)/.sonar-token
+
 clean: ## Remove caches
-	rm -rf .pytest_cache .ruff_cache
+	rm -rf .pytest_cache .ruff_cache .coverage coverage.xml .scannerwork
 	find app tests scripts -type d -name __pycache__ -prune -exec rm -rf {} +

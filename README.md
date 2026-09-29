@@ -701,6 +701,17 @@ uv run python scripts/repeatability.py data/videos/C01.mp4 --runs 5
 uv run python scripts/run_dataset.py data/videos --metadata <csv> --accounts data/account-context.csv
 ```
 
+**Code quality (local SonarQube)**
+
+```bash
+make sonar-up       # SonarQube on :9002 (own compose project in quality/), admin password set, token in quality/.sonar-token
+make sonar-scan     # tests with coverage, scanner in Docker, report printed in the terminal
+make sonar-report   # print the last report again; make sonar-open for the dashboard
+make sonar-down     # stop, keeping the history (make sonar-clean wipes it)
+```
+
+`coverage.xml` is written with repo-relative paths (`relative_files` in `pyproject.toml`); with absolute host paths the scanner container matches no file and reports 0% coverage. Sonar's coverage counts `scripts/` too, so it reads lower than pytest's `app/`-only figure. The numbers are a floor, not a verdict: a clean rating does not replace reading the code.
+
 ## 19. Example requests and output
 
 ```bash

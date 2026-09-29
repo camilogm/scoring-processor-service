@@ -21,10 +21,20 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8", "httpx>=0.27"]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+    "pytest-cov>=7.1.0",
+]
 
 [tool.uv]
 package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["app"]
+# Paths relative to the repo root, so the report still matches files when the
+# SonarQube scanner reads it from inside a container with a different mount.
+relative_files = true

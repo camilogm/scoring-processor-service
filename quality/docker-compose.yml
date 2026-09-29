@@ -1,0 +1,45 @@
+# Local SonarQube, used as the objective half of the code-quality harness.
+#
+# Deliberately a separate compose project from the application stack: quality
+# tooling has no business sharing a lifecycle with the service under test, and
+# `make clean` must never be able to wipe an analysis history — or the other way
+# around. Different project name, different network, different volumes.
+name: scoring-quality
+
+services:
+  sonarqube:
+    image: sonarqube:community
+    container_name: scoring-sonarqube
+    # 9002 on the host: 9000 is the most contended port in local development,
+    # and 9001 belongs to the weather-test harness, so both can run at once.
+    ports:
+      - "${SONAR_PORT:-9002}:9000"
+    environment:
+      # The embedded H2 database is fine for a review harness and keeps this to
+      # one container. It is not, and does not pretend to be, a production setup.
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonar-data:/opt/sonarqube/data
+      - sonar-logs:/opt/sonarqube/logs
+      - sonar-extensions:/opt/sonarqube/extensions
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      # SonarQube reports UP only once Elasticsearch and the web app are both
+      # ready; anything earlier and a scanner would connect and then fail.
+      test:
+        - CMD-SHELL
+        - >-
+          wget --no-verbose --tries=1 --spider
+          http://127.0.0.1:9000/api/system/status || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+volumes:
+  sonar-data:
+  sonar-logs:
+  sonar-extensions:

@@ -24,6 +24,8 @@ uvx ruff check app tests scripts              # no ruff config in the repo; a ha
 
 scripts/restart_check.sh path/to/clip.mp4     # kill -9 durability check against a real server
 uv run python scripts/repeatability.py path/to/clip.mp4 --runs 5
+
+make sonar-up && make sonar-scan              # local SonarQube (quality/, port 9002): coverage + scan + report
 ```
 
 Config comes from `.env` (see `example.env`) via `app/settings.py`. `Settings` uses `extra="ignore"`, so a misspelled field is silently dropped instead of raising.
