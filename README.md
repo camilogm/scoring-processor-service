@@ -290,7 +290,7 @@ The design follows a **measure → judge → verify** pattern: measure what can 
 
 ### Stage 1: Validate
 
-File is a readable MP4, has a video stream, and is within the duration limit (default 240 s, configurable). Metadata fields are well-formed.
+File is a readable MP4, has a video stream, and is within the duration limit (default 240 s, configurable; why 240 when the brief says 3 minutes is under [Length scope](#length-scope)). Metadata fields are well-formed.
 
 ### Stage 2: Speech check (simplified)
 
@@ -692,7 +692,7 @@ uv run pytest                 # unit, API, storage and pipeline tests (need the 
 | `LLM_JSON_MODE`                                         | `true`                      | Sends `response_format=json_object`; turn off for providers that reject it |
 | `LLM_PRICE_INPUT_PER_MTOK`, `LLM_PRICE_OUTPUT_PER_MTOK` | `0`                         | Cost estimate when the provider doesn't report cost in `usage`             |
 | `WHISPER_MODEL`                                         | `base.en`                   | faster-whisper model, CPU int8                                             |
-| `MAX_UPLOAD_MB`, `MAX_DURATION_S`                       | `200`, `240`                |                                                                            |
+| `MAX_UPLOAD_MB`, `MAX_DURATION_S`                       | `200`, `240`                | 240 s = the 3-minute target plus a 1-minute margin ([Length scope](#length-scope)) |
 | `DATABASE_URL`                                          | `postgresql://clip:clip@localhost:5432/clip_scoring` | docker compose points it at the `db` service           |
 | `TEST_DATABASE_URL`                                     | `postgresql://clip:clip@localhost:5432/postgres` | Tests create and drop one database per test on this server |
 | `DATA_DIR`                                              | `var`                       | Uploads, Whisper model cache, temp work dirs                               |
@@ -843,6 +843,7 @@ The report has **no data of its own**. `GET /analyses/{id}/report` loads the sam
 | Summary sentence                                | `overall.summary`                                                                         | Written by the judge call                                                 |
 | Overall score                                   | `overall.score`                                                                           | Rounded to one decimal; `raw_score` keeps full precision                  |
 | Format for Instagram and TikTok                 | `format_check.*`, `input.width`, `input.height`                                           | Also on the status page; informative, never changes the score             |
+| Length                                          | `duration_check.*`                                                                        | Also on the status page; informative, never changes the score             |
 | Cap notice _(when applied)_                     | `overall.capped`, `overall.cap_reason`                                                    |                                                                           |
 | The clip's point                                | `overall.point`                                                                           | One sentence from the judge call                                          |
 | Viral potential                                 | `potential.helps`, `potential.holds_back`, `potential.shareable_line`, `potential.caveat` | From the same judge call; no extra model call                             |
@@ -863,6 +864,7 @@ The report has **no data of its own**. `GET /analyses/{id}/report` loads the sam
 | `input`                            | object                                              | yes            | File facts measured on upload: name, SHA-256, size, duration, resolution, fps      |
 | `metadata`                         | object                                              | yes            | What the caller sent, returned as is (including `external_id`)                     |
 | `format_check`                     | object                                              | yes            | Whether the frame fits Instagram Reels and TikTok (9:16, 1080×1920); see below      |
+| `duration_check`                   | `{status, duration_s, target_s, limit_s}`           | yes            | The clip's length against the 3-minute target and the upload limit; see below      |
 | `mode`                             | `speech` \| `low_speech`                            | when completed | `low_speech` lowers confidence on speech-based dimensions                          |
 | `overall.score`                    | number 0–10, one decimal                            | when completed | Weighted average of applicable dimensions, after the cap rule                      |
 | `overall.verdict`                  | `post` \| `improve` \| `skip`                       | when completed | From the thresholds in `rubric.yaml`                                               |
@@ -893,6 +895,16 @@ Adding a field to the page means adding it to this contract first, and bumping `
 - Phones often store vertical video as 1920×1080 plus a rotation flag, so the probe reports the size as displayed.
 
 It informs; it never changes the score or the verdict. The rubric grades the content, and a horizontal clip can be reframed without re-editing it.
+
+#### Length scope
+
+The brief sets clips of **up to 3 minutes** and says a clip of 3:05 is still in scope; long-form video is out. So 3 minutes is a target, not a hard cut-off, and the service treats it that way:
+
+- **Target: 180 s** (`TARGET_S` in `app/pipeline/duration_check.py`), the brief's 3 minutes.
+- **Hard limit: 240 s** (`MAX_DURATION_S`). A clip is rejected with `422 too_long` only when it is longer than this; 240.0 s itself passes. The extra minute keeps short overruns like 3:05 or 3:14 in scope and still turns away anything long-form.
+- `duration_check` reports both next to the clip's length: `within_target` up to 3:00, `over_target` above it. `over_target` is information, not an error or a warning: the clip was accepted and is scored like any other. Like `format_check`, it is computed on read (`limit_s` is the running config), so it doesn't touch the cache key.
+
+A stricter cut-off (say 200 s) was considered and not taken: it is just as arbitrary, and it would reject clips the brief explicitly keeps in scope.
 
 ### Viral potential
 

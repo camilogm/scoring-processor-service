@@ -102,6 +102,10 @@ def _with_model(settings: Settings, model: str | None) -> Settings:
     return settings.model_copy(update={"llm_model": model})
 
 
+def _respond(request: Request, row: dict, **kwargs) -> dict:
+    return to_response(row, limit_s=request.app.state.settings.max_duration_s, **kwargs)
+
+
 def _get_row(request: Request, analysis_id: str) -> dict:
     row = request.app.state.store.get(analysis_id)
     if row is None:
@@ -206,10 +210,10 @@ async def create_analysis(
     )
     if created:
         request.app.state.worker.submit(row["id"])
-        return JSONResponse(status_code=202, content=_validated(to_response(row, deduplicated=False)))
+        return JSONResponse(status_code=202, content=_validated(_respond(request, row, deduplicated=False)))
 
     return JSONResponse(
-        status_code=200, content=_validated(to_response(row, source="cached", deduplicated=True))
+        status_code=200, content=_validated(_respond(request, row, source="cached", deduplicated=True))
     )
 
 
@@ -225,7 +229,7 @@ def list_analyses(
     request: Request,
     limit: int = Query(50, ge=1, le=200, description="How many analyses to return, newest first."),
 ):
-    return {"items": [to_response(row) for row in request.app.state.store.list_recent(limit)]}
+    return {"items": [_respond(request, row) for row in request.app.state.store.list_recent(limit)]}
 
 
 @router.get(
@@ -241,7 +245,7 @@ def list_analyses(
     },
 )
 def get_analysis(request: Request, analysis_id: str):
-    return to_response(_get_row(request, analysis_id))
+    return _respond(request, _get_row(request, analysis_id))
 
 
 @router.get(
@@ -256,7 +260,7 @@ def get_analysis(request: Request, analysis_id: str):
     },
 )
 def get_report(request: Request, analysis_id: str):
-    return HTMLResponse(render_report(to_response(_get_row(request, analysis_id))))
+    return HTMLResponse(render_report(_respond(request, _get_row(request, analysis_id))))
 
 
 @router.get("/demo", response_class=HTMLResponse, include_in_schema=False)

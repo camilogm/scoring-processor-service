@@ -33,6 +33,12 @@
     },
     "issues": []
   },
+  "duration_check": {
+    "status": "within_target",
+    "duration_s": 74.2,
+    "target_s": 180,
+    "limit_s": 240
+  },
   "mode": "speech",
   "overall": {
     "score": 6.6,

@@ -62,6 +62,17 @@ class FormatCheck(BaseModel):
     issues: list[FormatIssue]
 
 
+class DurationCheck(BaseModel):
+    """The clip's length against the brief's scope: up to 3 minutes, short overruns still in scope."""
+
+    status: Literal["within_target", "over_target"] = Field(
+        description="`over_target` is information, not an error: the upload already enforced `limit_s`."
+    )
+    duration_s: float
+    target_s: int = Field(description="The 3 minutes the service is built for.")
+    limit_s: float = Field(description="Longest clip the API accepts (MAX_DURATION_S); longer is `422 too_long`.")
+
+
 class Overall(BaseModel):
     score: float = Field(description="0–10, one decimal, after the cap rule.")
     raw_score: float = Field(description="Weighted average before rounding and capping.")
@@ -171,6 +182,7 @@ class Analysis(BaseModel):
     input: InputFacts
     metadata: Metadata
     format_check: FormatCheck
+    duration_check: DurationCheck
     mode: Literal["speech", "low_speech"] | None = None
     overall: Overall | None = None
     potential: Potential | None = None

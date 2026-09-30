@@ -141,6 +141,15 @@ def test_format_check_is_returned_before_the_analysis_runs(client):
     assert client.get(f"/analyses/{body['id']}").json()["format_check"]["aspect_ratio"] == "9:16"
 
 
+def test_duration_check_reports_the_target_and_the_configured_limit(settings, probe_ok):
+    with TestClient(create_app(settings.model_copy(update={"max_duration_s": 200.0}))) as c:
+        body = _post(c).json()
+        listed = c.get("/analyses").json()["items"][0]
+
+    assert body["duration_check"] == {"status": "within_target", "duration_s": 42.0, "target_s": 180, "limit_s": 200}
+    assert listed["duration_check"]["limit_s"] == 200
+
+
 def test_horizontal_clip_is_flagged_but_still_analysed(client, monkeypatch):
     monkeypatch.setattr(
         validate, "probe", lambda p: VideoInfo(duration_s=42.0, width=1920, height=1080, fps=30.0, has_audio=True)

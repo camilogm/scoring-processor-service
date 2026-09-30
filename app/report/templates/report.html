@@ -79,6 +79,21 @@
   </div>
   </section>
 {% endmacro %}
+{% macro duration_section(dc) %}
+  <section class="duration" aria-labelledby="duration-h">
+  <h2 id="duration-h">Length</h2>
+  <div class="card">
+    <div class="format-head">
+      <strong>{{ dc.duration_s | mmss }}</strong>
+      {% if dc.status == "within_target" %}<span class="pill good">Within target</span>{% else %}<span class="pill mid">Over target</span>{% endif %}
+    </div>
+    <div class="meta">Target: up to {{ dc.target_s | mmss }}. Accepted up to {{ dc.limit_s | mmss }}; longer clips are rejected as long-form.</div>
+    {% if dc.status == "over_target" %}
+    <p style="margin:6px 0 0">Longer than the {{ dc.target_s | mmss }} target but still in scope: a short overrun is fine. For information only: it doesn't change the score.</p>
+    {% endif %}
+  </div>
+  </section>
+{% endmacro %}
 <main>
   <div class="clip">
     {{ a.input.filename or "clip" }}{% if a.metadata.account %} · {{ a.metadata.account }}{% endif %}
@@ -95,6 +110,7 @@
     {% if a.status in ("queued", "processing") %}<p class="meta">Refresh this page to see progress.</p>{% endif %}
   </div>
   {% if a.format_check %}{{ format_section(a.format_check, a.input) }}{% endif %}
+  {% if a.duration_check %}{{ duration_section(a.duration_check) }}{% endif %}
 {% else %}
   {% set o = a.overall %}
   <h1>{{ o.verdict_label }}</h1>
@@ -110,6 +126,7 @@
     {% if a.mode == "low_speech" %}<div class="notice">Little speech detected: speech-based scores have low confidence.</div>{% endif %}
   </div>
   {% if a.format_check %}{{ format_section(a.format_check, a.input) }}{% endif %}
+  {% if a.duration_check %}{{ duration_section(a.duration_check) }}{% endif %}
 
   <h2>The clip's point</h2>
   <div class="card">{{ o.point }}</div>
