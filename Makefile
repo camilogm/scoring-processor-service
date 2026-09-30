@@ -1,7 +1,8 @@
 .DEFAULT_GOAL := help
 .PHONY: help install db db-stop db-shell run dev test lint migrate migration downgrade db-current db-history \
         up down watch build logs ps restart-check repeatability clean \
-        coverage sonar-up sonar-scan sonar-report sonar-open sonar-down sonar-clean
+        coverage sonar-up sonar-scan sonar-report sonar-open sonar-down sonar-clean \
+        fly-setup fly-secrets deploy fly-logs fly-open spend
 
 PORT ?= 9500
 RUNS ?= 5
@@ -84,6 +85,41 @@ restart-check: ## kill -9 durability check: make restart-check CLIP=path/to/clip
 repeatability: ## Score stability: make repeatability CLIP=path/to/clip.mp4 RUNS=5
 	@test -n "$(CLIP)" || (echo 'usage: make repeatability CLIP=path/to/clip.mp4' && exit 1)
 	uv run python scripts/repeatability.py $(CLIP) --runs $(RUNS)
+
+# --- Deploy (Fly.io) -----------------------------------------------------------------------
+# One long-lived machine running the same Dockerfile; the model goes through Vercel AI Gateway.
+# Why not Vercel hosting: docs/adr/0001-deploy-on-fly.md. Needs flyctl: brew install flyctl.
+
+FLY        ?= fly
+FLY_APP    ?= clip-scoring
+FLY_REGION ?= dfw
+# The gateway key from the environment or .env, never echoed or passed as an argument.
+GATEWAY_KEY = $${AI_GATEWAY_API_KEY:-$$(awk '/^AI_GATEWAY_API_KEY=/ {sub(/^[^=]*=/, ""); v = $$0} END {print v}' .env 2>/dev/null)}
+
+fly-setup: ## One-time: create the Fly app, its volume and Postgres, and push the gateway key
+	@command -v $(FLY) >/dev/null || (echo "flyctl not found: brew install flyctl && fly auth login" && exit 1)
+	$(FLY) apps create $(FLY_APP)
+	$(FLY) volumes create clip_data -a $(FLY_APP) -r $(FLY_REGION) --size 10 --yes
+	$(FLY) mpg create -n $(FLY_APP)-db -r $(FLY_REGION)
+	@$(MAKE) --no-print-directory fly-secrets
+	@echo "Last step: fly mpg list, then fly mpg attach <cluster-id> -a $(FLY_APP) (sets DATABASE_URL)"
+
+fly-secrets: ## Push AI_GATEWAY_API_KEY (from the environment or .env) to Fly
+	@key="$(GATEWAY_KEY)"; test -n "$$key" || (echo "AI_GATEWAY_API_KEY is not set in the environment or .env" && exit 1); \
+		printf 'AI_GATEWAY_API_KEY=%s\n' "$$key" | $(FLY) secrets import -a $(FLY_APP)
+
+deploy: ## Build and deploy to Fly.io (one machine: the worker and the sweep assume a single instance)
+	$(FLY) deploy -a $(FLY_APP) --ha=false
+
+fly-logs: ## Follow the deployed app's logs
+	$(FLY) logs -a $(FLY_APP)
+
+fly-open: ## Open the deployed demo page
+	$(FLY) open /demo -a $(FLY_APP)
+
+spend: ## Vercel AI Gateway balance and total spend in USD (per clip: provenance.cost_usd)
+	@key="$(GATEWAY_KEY)"; test -n "$$key" || (echo "AI_GATEWAY_API_KEY is not set in the environment or .env" && exit 1); \
+		printf 'Authorization: Bearer %s' "$$key" | curl -fsS -H @- https://ai-gateway.vercel.sh/v1/credits; echo
 
 # --- Quality (SonarQube) -------------------------------------------------------------------
 # A real SonarQube, run locally, so the quality numbers quoted anywhere in this repo can be
