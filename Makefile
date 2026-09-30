@@ -2,7 +2,7 @@
 .PHONY: help install db db-stop db-shell run dev test lint migrate migration downgrade db-current db-history \
         up down watch build logs ps restart-check repeatability clean \
         coverage sonar-up sonar-scan sonar-report sonar-open sonar-down sonar-clean \
-        fly-setup fly-secrets password deploy fly-logs fly-open spend
+        fly-setup fly-secrets fly-choices-off password deploy fly-logs fly-open spend
 
 PORT ?= 9500
 RUNS ?= 5
@@ -105,12 +105,18 @@ fly-setup: ## One-time: create the Fly app, its volume and Postgres, and push th
 	@$(MAKE) --no-print-directory fly-secrets
 	@echo "Last step: fly mpg list, then fly mpg attach <cluster-id> -a $(FLY_APP) (sets DATABASE_URL)"
 
-fly-secrets: ## Push the gateway key and the Basic auth credentials (environment or .env) to Fly
+fly-secrets: ## Push the gateway key, the Basic auth credentials and LLM_MODEL_CHOICES if set (environment or .env) to Fly
 	@key="$(GATEWAY_KEY)"; user="$(call env_value,BASIC_AUTH_USER)"; password="$(call env_value,BASIC_AUTH_PASSWORD)"; \
+		choices="$(call env_value,LLM_MODEL_CHOICES)"; \
 		test -n "$$key" || { echo "AI_GATEWAY_API_KEY is not set in the environment or .env"; exit 1; }; \
 		test -n "$$user" -a -n "$$password" || { echo "BASIC_AUTH_USER and BASIC_AUTH_PASSWORD are required: the deployment is public (make password)"; exit 1; }; \
-		printf 'AI_GATEWAY_API_KEY=%s\nBASIC_AUTH_USER=%s\nBASIC_AUTH_PASSWORD=%s\n' "$$key" "$$user" "$$password" \
+		test -z "$$choices" || echo "Model choice ON for $(FLY_APP): $$choices (turn off: make fly-choices-off)"; \
+		{ printf 'AI_GATEWAY_API_KEY=%s\nBASIC_AUTH_USER=%s\nBASIC_AUTH_PASSWORD=%s\n' "$$key" "$$user" "$$password"; \
+		  test -z "$$choices" || printf 'LLM_MODEL_CHOICES=%s\n' "$$choices"; } \
 		| $(FLY) secrets import -a $(FLY_APP)
+
+fly-choices-off: ## Turn per-upload model choice off on Fly (removes LLM_MODEL_CHOICES)
+	$(FLY) secrets unset LLM_MODEL_CHOICES -a $(FLY_APP)
 
 password: ## Print a random BASIC_AUTH_PASSWORD line to paste into .env
 	@printf 'BASIC_AUTH_PASSWORD=%s\n' "$$(openssl rand -base64 24 | tr -d '/+=')"
