@@ -21,6 +21,18 @@
     "platform": "tiktok",
     "external_id": "C07"
   },
+  "format_check": {
+    "status": "optimal",
+    "aspect_ratio": "9:16",
+    "orientation": "vertical",
+    "platforms": ["instagram", "tiktok"],
+    "recommended": {
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16"
+    },
+    "issues": []
+  },
   "mode": "speech",
   "overall": {
     "score": 6.6,

@@ -420,6 +420,7 @@ Multipart form:
 
 - `file`: the MP4
 - `metadata`: JSON string, e.g. `{"title": "...", "account": "...", "platform": "tiktok", "external_id": "C07"}` (all optional except what's listed as required in `TBD`)
+  - `platform` is `tiktok` or `instagram`, the two platforms in scope. Anything else returns `400 invalid_metadata`.
   - `external_id` is the caller's own reference (for example a sample ID or post ID). It's returned unchanged in every response, so the caller can match results to their records. It doesn't affect the analysis and isn't part of the duplicate check.
 - `model` (optional, for comparing models only): judge this clip with another model from `LLM_MODEL_CHOICES`. It is off unless that setting lists models, and anything outside the list returns `400 model_not_allowed`. Each model is a separate analysis of the same clip, because the model is part of the cache key. The `/demo` page shows a model picker when it's on, and each row shows the model and its cost.
   - **Don't enable it in production.** Whoever can upload would choose what each clip costs, and one expensive reasoning model can cost more than the $1 budget. Keep `LLM_MODEL_CHOICES` empty outside local or private test deployments, and pin one model instead.
@@ -841,6 +842,7 @@ The report has **no data of its own**. `GET /analyses/{id}/report` loads the sam
 | Verdict headline                                | `overall.verdict`, `overall.verdict_label`                                                | Label text lives in the rubric config, so wording can change without code |
 | Summary sentence                                | `overall.summary`                                                                         | Written by the judge call                                                 |
 | Overall score                                   | `overall.score`                                                                           | Rounded to one decimal; `raw_score` keeps full precision                  |
+| Format for Instagram and TikTok                 | `format_check.*`, `input.width`, `input.height`                                           | Also on the status page; informative, never changes the score             |
 | Cap notice _(when applied)_                     | `overall.capped`, `overall.cap_reason`                                                    |                                                                           |
 | The clip's point                                | `overall.point`                                                                           | One sentence from the judge call                                          |
 | Viral potential                                 | `potential.helps`, `potential.holds_back`, `potential.shareable_line`, `potential.caveat` | From the same judge call; no extra model call                             |
@@ -860,6 +862,7 @@ The report has **no data of its own**. `GET /analyses/{id}/report` loads the sam
 | `source`                           | `fresh` \| `cached`                                 | when completed | Whether the model ran for this request or a stored result was returned             |
 | `input`                            | object                                              | yes            | File facts measured on upload: name, SHA-256, size, duration, resolution, fps      |
 | `metadata`                         | object                                              | yes            | What the caller sent, returned as is (including `external_id`)                     |
+| `format_check`                     | object                                              | yes            | Whether the frame fits Instagram Reels and TikTok (9:16, 1080×1920); see below      |
 | `mode`                             | `speech` \| `low_speech`                            | when completed | `low_speech` lowers confidence on speech-based dimensions                          |
 | `overall.score`                    | number 0–10, one decimal                            | when completed | Weighted average of applicable dimensions, after the cap rule                      |
 | `overall.verdict`                  | `post` \| `improve` \| `skip`                       | when completed | From the thresholds in `rubric.yaml`                                               |
@@ -881,6 +884,15 @@ The report has **no data of its own**. `GET /analyses/{id}/report` loads the sam
 | `error`                            | `{code, message}` \| null                           | yes            | Set only when `status` is `failed`                                                 |
 
 Adding a field to the page means adding it to this contract first, and bumping `pipeline_version`.
+
+**Format check.** `format_check` is computed when the response is built, from `input.width` and `input.height`, so it is there from the upload on and for older analyses too; it is not stored and doesn't touch the cache key, which is why adding it didn't bump `pipeline_version`. Both platforms play full screen at 9:16, so one check covers both (`app/pipeline/format_check.py`):
+
+- **Aspect ratio:** 9:16 (within 2%, since encoders round sizes like 1080×1916) is fine; another vertical ratio such as 4:5 is `acceptable` (cropped or barred); square or horizontal is `not_optimal`.
+- **Resolution** (short side): 1080 px or more is fine, 720 px or more is `acceptable`, less is `not_optimal`.
+- `status` is the worst issue, `optimal` with none, `unknown` when the size couldn't be read. Each issue carries a `message` and a `fix`.
+- Phones often store vertical video as 1920×1080 plus a rotation flag, so the probe reports the size as displayed.
+
+It informs; it never changes the score or the verdict. The rubric grades the content, and a horizontal clip can be reframed without re-editing it.
 
 ### Viral potential
 

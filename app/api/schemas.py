@@ -27,8 +27,39 @@ class Metadata(BaseModel):
 
     title: str | None = None
     account: str | None = None
-    platform: str | None = Field(None, description="For example `tiktok` or `instagram`.")
+    # A plain string on the way out: analyses stored before the allowlist keep reading.
+    platform: str | None = Field(None, description="`tiktok` or `instagram`.")
     external_id: str | None = Field(None, description="Caller's own reference, returned unchanged.")
+
+
+class MetadataIn(Metadata):
+    """The upload's metadata: only the platforms in scope are accepted."""
+
+    platform: Literal["tiktok", "instagram"] | None = None
+
+
+class FormatIssue(BaseModel):
+    check: Literal["aspect_ratio", "resolution"]
+    status: Literal["acceptable", "not_optimal"]
+    message: str
+    fix: str
+
+
+class RecommendedFormat(BaseModel):
+    width: int
+    height: int
+    aspect_ratio: str
+
+
+class FormatCheck(BaseModel):
+    """Whether the frame fits Instagram Reels and TikTok. Computed from `input`; never changes the score."""
+
+    status: Literal["optimal", "acceptable", "not_optimal", "unknown"]
+    aspect_ratio: str | None = Field(description="Named ratio such as `9:16`, or the reduced width:height.")
+    orientation: Literal["vertical", "square", "horizontal"] | None
+    platforms: list[Literal["instagram", "tiktok"]]
+    recommended: RecommendedFormat
+    issues: list[FormatIssue]
 
 
 class Overall(BaseModel):
@@ -139,6 +170,7 @@ class Analysis(BaseModel):
     finished_at: str | None
     input: InputFacts
     metadata: Metadata
+    format_check: FormatCheck
     mode: Literal["speech", "low_speech"] | None = None
     overall: Overall | None = None
     potential: Potential | None = None

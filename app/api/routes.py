@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import ValidationError
 
 from app.api.errors import ApiError
-from app.api.schemas import Analysis, AnalysisList, Health, Metadata, error_example
+from app.api.schemas import Analysis, AnalysisList, Health, MetadataIn, error_example
 from app.api.serialize import to_response
 from app.pipeline import validate
 from app.pipeline.judge import PROMPT_VERSION
@@ -44,9 +44,12 @@ def _parse_metadata(raw: str | None) -> dict:
     if not raw:
         return {}
     try:
-        return Metadata.model_validate(json.loads(raw)).model_dump(exclude_none=True)
+        return MetadataIn.model_validate(json.loads(raw)).model_dump(exclude_none=True)
     except (json.JSONDecodeError, ValidationError, TypeError) as exc:
-        raise ApiError(400, "invalid_metadata", f"metadata must be a JSON object with string fields: {exc}") from exc
+        raise ApiError(
+            400, "invalid_metadata",
+            f"metadata must be a JSON object with string fields; platform is tiktok or instagram: {exc}",
+        ) from exc
 
 
 async def _save_upload(upload: UploadFile, dest_dir: Path, max_bytes: int) -> tuple[Path, str, int, bytes]:
@@ -139,7 +142,8 @@ async def create_analysis(
     file: UploadFile | None = File(None, description="The MP4 clip."),
     metadata: str | None = Form(
         None,
-        description="JSON object as a string. All fields optional; `title` and `platform` reach the judge, "
+        description="JSON object as a string. All fields optional; `title` and `platform` (`tiktok` or "
+        "`instagram`) reach the judge, "
         "`external_id` is returned unchanged and never affects deduplication.",
         examples=[METADATA_EXAMPLE],
     ),

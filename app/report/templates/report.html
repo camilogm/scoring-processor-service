@@ -54,9 +54,31 @@
   blockquote { margin: 8px 0 0; padding-left: 12px; border-left: 3px solid var(--accent); font-style: italic; }
   footer { margin-top: 32px; color: var(--muted); font-size: 12px; }
   code { font-size: 12px; }
+  .format-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
+{% macro format_section(fc, input) %}
+  {% set labels = {"optimal": "Optimal", "acceptable": "Acceptable", "not_optimal": "Not optimal", "unknown": "Unknown"} %}
+  {% set bands = {"optimal": "good", "acceptable": "mid", "not_optimal": "bad", "unknown": "na"} %}
+  <section class="format" aria-labelledby="format-h">
+  <h2 id="format-h">Format for Instagram and TikTok</h2>
+  <div class="card">
+    <div class="format-head">
+      <strong>{{ input.width }}×{{ input.height }}{% if fc.aspect_ratio %} · {{ fc.aspect_ratio }} {{ fc.orientation }}{% endif %}</strong>
+      <span class="pill {{ bands[fc.status] }}">{{ labels[fc.status] }}</span>
+    </div>
+    <div class="meta">Recommended: {{ fc.recommended.aspect_ratio }} vertical, {{ fc.recommended.width }}×{{ fc.recommended.height }}. For information only: it doesn't change the score.</div>
+    {% if fc.issues %}
+    <ul>{% for i in fc.issues %}<li>{{ i.message }} <span class="fix"><b>Fix:</b> {{ i.fix }}</span></li>{% endfor %}</ul>
+    {% elif fc.status == "unknown" %}
+    <p class="meta">The video dimensions could not be read.</p>
+    {% else %}
+    <p style="margin:6px 0 0">Fills a phone screen on both platforms.</p>
+    {% endif %}
+  </div>
+  </section>
+{% endmacro %}
 <main>
   <div class="clip">
     {{ a.input.filename or "clip" }}{% if a.metadata.account %} · {{ a.metadata.account }}{% endif %}
@@ -72,6 +94,7 @@
     {% if a.error %}<p><strong>{{ a.error.code }}</strong>: {{ a.error.message }}</p>{% endif %}
     {% if a.status in ("queued", "processing") %}<p class="meta">Refresh this page to see progress.</p>{% endif %}
   </div>
+  {% if a.format_check %}{{ format_section(a.format_check, a.input) }}{% endif %}
 {% else %}
   {% set o = a.overall %}
   <h1>{{ o.verdict_label }}</h1>
@@ -86,6 +109,7 @@
     {% if o.capped %}<div class="notice"><strong>Capped at 6.0.</strong> {{ o.cap_reason }}</div>{% endif %}
     {% if a.mode == "low_speech" %}<div class="notice">Little speech detected: speech-based scores have low confidence.</div>{% endif %}
   </div>
+  {% if a.format_check %}{{ format_section(a.format_check, a.input) }}{% endif %}
 
   <h2>The clip's point</h2>
   <div class="card">{{ o.point }}</div>
