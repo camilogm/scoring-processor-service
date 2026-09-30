@@ -697,6 +697,17 @@ uv run pytest                 # unit, API, storage and pipeline tests (need the 
 | `DATA_DIR`                                              | `var`                       | Uploads, Whisper model cache, temp work dirs                               |
 | `LLM_MODEL_CHOICES`                                     | empty (off)                 | Extra models a caller may pick per upload, for comparing models only. Keep it off in production |
 | `MAX_COST_PER_CLIP_USD`                                 | `1.0`                       | A clip whose judge call costs more is logged as over budget                |
+| `BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD`                | empty (off)                 | HTTP Basic auth on every route but `/health`. Set both or neither; required by `make fly-secrets` |
+
+**Deploy (Fly.io, see [ADR 0001](docs/adr/0001-deploy-on-fly.md))**
+
+```bash
+make password >> .env          # plus BASIC_AUTH_USER=... and AI_GATEWAY_API_KEY=... in .env
+make fly-setup                 # once: app, volume, Postgres, secrets; then fly mpg attach
+make deploy
+```
+
+The deployment is public, so it sits behind Basic auth: the browser asks once and the demo page reuses the credentials. It keeps strangers out of a test deployment. It is not user management: one shared account, and anyone holding it can upload and spend.
 
 **Checks**
 

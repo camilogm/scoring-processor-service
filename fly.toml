@@ -16,7 +16,8 @@ primary_region = "dfw"
   LLM_VISION = "true"
   LLM_MAX_FRAMES = "16"
   MAX_COST_PER_CLIP_USD = "1.0"
-  # AI_GATEWAY_API_KEY and DATABASE_URL are secrets (make fly-setup), never in this file.
+  # AI_GATEWAY_API_KEY, BASIC_AUTH_USER/PASSWORD (make fly-secrets) and DATABASE_URL (fly mpg
+  # attach) are secrets, never in this file. /health stays open for the check below.
 
 # Uploads and the Whisper cache. A volume belongs to one machine, which is what the design
 # needs anyway: the in-process queue and the startup sweep assume a single instance.
