@@ -35,8 +35,10 @@ def client(settings, probe_ok):
         yield c
 
 
-def _post(client, content=FAKE_MP4, metadata=None, params=None, filename="clip.mp4"):
-    data = {} if metadata is None else {"metadata": metadata}
+def _post(client, content=FAKE_MP4, metadata=None, params=None, filename="clip.mp4", data=None):
+    data = dict(data or {})
+    if metadata is not None:
+        data["metadata"] = metadata
     return client.post(
         "/analyses", files={"file": (filename, content, "video/mp4")}, data=data, params=params or {}
     )
@@ -221,6 +223,69 @@ def test_demo_page_uploads_lists_and_links_reports(client):
     assert 'type="file"' in html
     assert "/analyses" in html
     assert "/report" in html
+
+
+@pytest.fixture
+def choice_client(settings, probe_ok):
+    """Model choice enabled: the default model plus two alternatives."""
+    enabled = settings.model_copy(update={"llm_model": "google/gemini-2.5-flash",
+                                          "llm_model_choices": "openai/gpt-5-nano, anthropic/claude-sonnet-5.5"})
+    with TestClient(create_app(enabled)) as c:
+        yield c
+
+
+def test_chosen_model_from_the_allowlist_is_stored_for_the_analysis(choice_client):
+    res = _post(choice_client, data={"model": "openai/gpt-5-nano"})
+
+    assert res.status_code == 202
+    assert choice_client.app.state.store.get(res.json()["id"])["model_id"] == "openai/gpt-5-nano"
+
+
+def test_without_a_choice_the_default_model_is_used(choice_client):
+    res = _post(choice_client)
+
+    assert choice_client.app.state.store.get(res.json()["id"])["model_id"] == "google/gemini-2.5-flash"
+
+
+def test_model_outside_the_allowlist_is_rejected(choice_client):
+    res = _post(choice_client, data={"model": "openai/gpt-5.5-pro"})
+
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "model_not_allowed"
+
+
+def test_model_choice_is_off_by_default(client):
+    res = _post(client, data={"model": "openai/gpt-5-nano"})
+
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "model_not_allowed"
+    assert "LLM_MODEL_CHOICES" in res.json()["error"]["message"]
+
+
+def test_the_default_model_can_always_be_named(client, settings):
+    assert _post(client, data={"model": settings.llm_model}).status_code == 202
+
+
+def test_each_model_gets_its_own_analysis_of_the_same_clip(choice_client):
+    nano = _post(choice_client, data={"model": "openai/gpt-5-nano"}).json()
+    sonnet = _post(choice_client, data={"model": "anthropic/claude-sonnet-5.5"}).json()
+    nano_again = _post(choice_client, data={"model": "openai/gpt-5-nano"})
+
+    assert nano["id"] != sonnet["id"]
+    assert nano_again.status_code == 200
+    assert nano_again.json()["id"] == nano["id"]
+
+
+def test_demo_page_offers_the_model_choices(choice_client):
+    html = choice_client.get("/demo").text
+
+    assert 'name="model"' in html
+    assert '<option value="google/gemini-2.5-flash" selected>' in html
+    assert '<option value="anthropic/claude-sonnet-5.5">' in html
+
+
+def test_demo_page_hides_the_model_picker_when_choice_is_off(client):
+    assert 'name="model"' not in client.get("/demo").text
 
 
 BASE_SETTINGS = Settings(_env_file=None)

@@ -5,6 +5,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.pipeline.model import fmt_ts
+from app.settings import Settings
 
 _env = Environment(
     loader=FileSystemLoader(Path(__file__).parent / "templates"),
@@ -29,5 +30,5 @@ def render_report(analysis: dict) -> str:
     return _env.get_template("report.html").render(a=analysis)
 
 
-def render_demo() -> str:
-    return _env.get_template("demo.html").render()
+def render_demo(settings: Settings) -> str:
+    return _env.get_template("demo.html").render(models=settings.allowed_models, default_model=settings.llm_model)

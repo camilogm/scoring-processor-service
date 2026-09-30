@@ -87,6 +87,18 @@ def _cache_key(file_sha: str, metadata: dict, settings: Settings, rubric_version
     return hashlib.sha256(material.encode()).hexdigest()
 
 
+def _with_model(settings: Settings, model: str | None) -> Settings:
+    """The settings this analysis runs with: the default model, or an allowed choice."""
+    if not model or model == settings.llm_model:
+        return settings
+    allowed = settings.allowed_models
+    if len(allowed) == 1:
+        raise ApiError(400, "model_not_allowed", "Choosing a model is off: set LLM_MODEL_CHOICES to enable it.")
+    if model not in allowed:
+        raise ApiError(400, "model_not_allowed", f"Model {model!r} is not allowed. Allowed: {', '.join(allowed)}.")
+    return settings.model_copy(update={"llm_model": model})
+
+
 def _get_row(request: Request, analysis_id: str) -> dict:
     row = request.app.state.store.get(analysis_id)
     if row is None:
@@ -114,7 +126,7 @@ def health():
             "with `deduplicated: true` and no new model cost.",
         },
         **error_example(400, "invalid_metadata", "metadata must be a JSON object with string fields.",
-                        "Missing file or malformed metadata."),
+                        "Missing file, malformed metadata or `model_not_allowed`."),
         **error_example(413, "file_too_large", "The file exceeds 200 MB.", "File too large."),
         **error_example(415, "unsupported_media_type", "Only MP4 files are accepted.", "Not an MP4."),
         **error_example(422, "too_long", "The clip is 312 s; the limit is 240 s.",
@@ -131,16 +143,22 @@ async def create_analysis(
         "`external_id` is returned unchanged and never affects deduplication.",
         examples=[METADATA_EXAMPLE],
     ),
+    model: str | None = Form(
+        None,
+        description="For comparing models only: judge this clip with another model from LLM_MODEL_CHOICES. "
+        "Off unless that setting is set, and it should stay off in production: whoever can upload would "
+        "choose what each clip costs. Each model is a separate analysis of the same clip.",
+    ),
     fresh: bool = Query(False, description="Force a new analysis even if an identical one exists (repeatability tests)."),
 ):
     """Validates and stores the clip, then analyses it in the background. The clip is never ranked against others."""
-    settings = request.app.state.settings
     store = request.app.state.store
     rubric = request.app.state.rubric
 
     if file is None:
         raise ApiError(400, "missing_file", "Send the video as the multipart field 'file'.")
     meta = _parse_metadata(metadata)
+    settings = _with_model(request.app.state.settings, model)
 
     tmp, file_sha, size, head = await _save_upload(file, settings.uploads_dir, settings.max_upload_mb * CHUNK)
     try:
@@ -238,6 +256,6 @@ def get_report(request: Request, analysis_id: str):
 
 
 @router.get("/demo", response_class=HTMLResponse, include_in_schema=False)
-def demo():
+def demo(request: Request):
     """Minimal page for reviewers: upload a clip, watch the list, open reports. Uses only the public API."""
-    return HTMLResponse(render_demo())
+    return HTMLResponse(render_demo(request.app.state.settings))

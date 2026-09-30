@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.auth import install_basic_auth
 from app.api.errors import install_error_handlers
 from app.api.openapi import install_openapi
 from app.api.routes import router
@@ -42,6 +43,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Clip Scoring Service", version=PIPELINE_VERSION, lifespan=lifespan)
     install_error_handlers(app)
+    install_basic_auth(app, settings)
     app.include_router(router)
     install_openapi(app)
     return app

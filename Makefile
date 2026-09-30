@@ -2,7 +2,7 @@
 .PHONY: help install db db-stop db-shell run dev test lint migrate migration downgrade db-current db-history \
         up down watch build logs ps restart-check repeatability clean \
         coverage sonar-up sonar-scan sonar-report sonar-open sonar-down sonar-clean \
-        fly-setup fly-secrets deploy fly-logs fly-open spend
+        fly-setup fly-secrets password deploy fly-logs fly-open spend
 
 PORT ?= 9500
 RUNS ?= 5
@@ -93,10 +93,11 @@ repeatability: ## Score stability: make repeatability CLIP=path/to/clip.mp4 RUNS
 FLY        ?= fly
 FLY_APP    ?= clip-scoring
 FLY_REGION ?= dfw
-# The gateway key from the environment or .env, never echoed or passed as an argument.
-GATEWAY_KEY = $${AI_GATEWAY_API_KEY:-$$(awk '/^AI_GATEWAY_API_KEY=/ {sub(/^[^=]*=/, ""); v = $$0} END {print v}' .env 2>/dev/null)}
+# A value from the environment or .env (shell snippet), never echoed or passed as an argument.
+env_value = $${$(1):-$$(awk -v k=$(1) 'index($$0, k "=") == 1 {v = substr($$0, length(k) + 2)} END {print v}' .env 2>/dev/null)}
+GATEWAY_KEY = $(call env_value,AI_GATEWAY_API_KEY)
 
-fly-setup: ## One-time: create the Fly app, its volume and Postgres, and push the gateway key
+fly-setup: ## One-time: create the Fly app, its volume and Postgres, and push the secrets
 	@command -v $(FLY) >/dev/null || (echo "flyctl not found: brew install flyctl && fly auth login" && exit 1)
 	$(FLY) apps create $(FLY_APP)
 	$(FLY) volumes create clip_data -a $(FLY_APP) -r $(FLY_REGION) --size 10 --yes
@@ -104,9 +105,15 @@ fly-setup: ## One-time: create the Fly app, its volume and Postgres, and push th
 	@$(MAKE) --no-print-directory fly-secrets
 	@echo "Last step: fly mpg list, then fly mpg attach <cluster-id> -a $(FLY_APP) (sets DATABASE_URL)"
 
-fly-secrets: ## Push AI_GATEWAY_API_KEY (from the environment or .env) to Fly
-	@key="$(GATEWAY_KEY)"; test -n "$$key" || (echo "AI_GATEWAY_API_KEY is not set in the environment or .env" && exit 1); \
-		printf 'AI_GATEWAY_API_KEY=%s\n' "$$key" | $(FLY) secrets import -a $(FLY_APP)
+fly-secrets: ## Push the gateway key and the Basic auth credentials (environment or .env) to Fly
+	@key="$(GATEWAY_KEY)"; user="$(call env_value,BASIC_AUTH_USER)"; password="$(call env_value,BASIC_AUTH_PASSWORD)"; \
+		test -n "$$key" || { echo "AI_GATEWAY_API_KEY is not set in the environment or .env"; exit 1; }; \
+		test -n "$$user" -a -n "$$password" || { echo "BASIC_AUTH_USER and BASIC_AUTH_PASSWORD are required: the deployment is public (make password)"; exit 1; }; \
+		printf 'AI_GATEWAY_API_KEY=%s\nBASIC_AUTH_USER=%s\nBASIC_AUTH_PASSWORD=%s\n' "$$key" "$$user" "$$password" \
+		| $(FLY) secrets import -a $(FLY_APP)
+
+password: ## Print a random BASIC_AUTH_PASSWORD line to paste into .env
+	@printf 'BASIC_AUTH_PASSWORD=%s\n' "$$(openssl rand -base64 24 | tr -d '/+=')"
 
 deploy: ## Build and deploy to Fly.io (one machine: the worker and the sweep assume a single instance)
 	$(FLY) deploy -a $(FLY_APP) --ha=false
