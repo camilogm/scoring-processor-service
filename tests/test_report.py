@@ -47,6 +47,37 @@ def test_format_section_also_shows_while_the_analysis_is_pending():
     assert "9:16" in _format_section({**pending, "status": "queued", "current_step": None, "error": None})
 
 
+def _duration_section(analysis: dict) -> str:
+    html = render_report(analysis)
+    match = re.search(r'<section class="duration"[^>]*>(.*?)</section>', html, flags=re.DOTALL)
+    return match.group(1) if match else ""
+
+
+def test_duration_section_shows_the_scope():
+    section = _duration_section(EXAMPLE)
+
+    assert "1:14" in section
+    assert "3:00" in section
+    assert "4:00" in section
+    assert "Within target" in section
+
+
+def test_duration_section_marks_a_short_overrun_as_in_scope():
+    over = {**EXAMPLE["duration_check"], "status": "over_target", "duration_s": 194.0}
+
+    section = _duration_section({**EXAMPLE, "duration_check": over})
+
+    assert "Over target" in section
+    assert "3:14" in section
+    assert "still in scope" in section
+
+
+def test_duration_section_also_shows_while_the_analysis_is_pending():
+    pending = {k: EXAMPLE[k] for k in ("id", "input", "metadata", "format_check", "duration_check")}
+
+    assert "3:00" in _duration_section({**pending, "status": "queued", "current_step": None, "error": None})
+
+
 def _footer(provenance: dict) -> str:
     html = render_report({**EXAMPLE, "provenance": provenance})
     return re.search(r"<footer>(.*?)</footer>", html, flags=re.DOTALL).group(1)
