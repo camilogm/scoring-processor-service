@@ -705,6 +705,8 @@ uv run pytest                 # unit, API, storage and pipeline tests (need the 
 make password >> .env          # plus BASIC_AUTH_USER=... and AI_GATEWAY_API_KEY=... in .env
 make fly-setup                 # once: app, volume, Postgres, secrets; then fly mpg attach
 make deploy
+make fly-secrets               # after changing the key, credentials or LLM_MODEL_CHOICES in .env
+make fly-choices-off           # turn model choice off on Fly (removing it from .env doesn't)
 ```
 
 The deployment is public, so it sits behind Basic auth: the browser asks once and the demo page reuses the credentials. It keeps strangers out of a test deployment. It is not user management: one shared account, and anyone holding it can upload and spend.
