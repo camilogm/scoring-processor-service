@@ -1,10 +1,21 @@
 """OpenAI-compatible client: Ollama and Vercel AI Gateway are a config change, not a code change."""
 
+import logging
 import re
+import time
 from dataclasses import dataclass
+
+import httpx
 
 from app.pipeline.model import ModelError
 from app.settings import Settings
+
+log = logging.getLogger(__name__)
+
+# Vercel AI Gateway ingests usage asynchronously: a lookup right after the call returns 404
+# for a few seconds.
+_GENERATION_LOOKUP_ATTEMPTS = 5
+_GENERATION_LOOKUP_DELAY_S = 2.0
 
 
 @dataclass
@@ -40,6 +51,31 @@ def _context_overflow_message(detail: str, settings: Settings) -> str:
     )
 
 
+def _gateway_cost(settings: Settings, generation_id: str) -> float | None:
+    """Actual cost billed by Vercel AI Gateway for one generation, or None if it can't be read."""
+    for attempt in range(_GENERATION_LOOKUP_ATTEMPTS):
+        if attempt:
+            time.sleep(_GENERATION_LOOKUP_DELAY_S)
+        try:
+            resp = httpx.get(
+                f"{settings.llm_base_url.rstrip('/')}/generation",
+                params={"id": generation_id},
+                headers={"Authorization": f"Bearer {settings.llm_api_key}"},
+                timeout=10,
+            )
+        except httpx.HTTPError as exc:
+            log.warning("Gateway cost lookup for %s failed: %s", generation_id, exc)
+            return None
+        if resp.status_code == 404:  # not ingested yet
+            continue
+        if resp.is_success:
+            return float(resp.json()["data"]["total_cost"])
+        log.warning("Gateway cost lookup for %s returned %s", generation_id, resp.status_code)
+        return None
+    log.warning("Gateway cost for %s not available after %s attempts", generation_id, _GENERATION_LOOKUP_ATTEMPTS)
+    return None
+
+
 def chat(settings: Settings, messages: list[dict]) -> Completion:
     import openai
 
@@ -73,13 +109,22 @@ def chat(settings: Settings, messages: list[dict]) -> Completion:
     usage = resp.usage
     input_tokens = usage.prompt_tokens if usage else 0
     output_tokens = usage.completion_tokens if usage else 0
-    # Some gateways report cost in usage; otherwise estimate from configured prices.
+    # Prefer the billed cost: Vercel AI Gateway generation ids (gen_...) can be looked up, some
+    # gateways report cost in usage; otherwise estimate from configured prices.
     reported = (usage.model_extra or {}).get("cost") if usage else None
+    if reported is None and (resp.id or "").startswith("gen_"):
+        reported = _gateway_cost(settings, resp.id)
     cost = (
         float(reported)
         if reported is not None
         else (input_tokens * settings.llm_price_input_per_mtok + output_tokens * settings.llm_price_output_per_mtok) / 1e6
     )
+    if cost > settings.max_cost_per_clip_usd:
+        log.warning(
+            "Judge call cost $%.4f, over the $%.2f per-clip budget (MAX_COST_PER_CLIP_USD)",
+            cost,
+            settings.max_cost_per_clip_usd,
+        )
     return Completion(
         content=resp.choices[0].message.content,
         model=resp.model or settings.llm_model,
