@@ -532,7 +532,7 @@ The spec puts job recovery and retries out of scope, and says documenting duplic
 
 **How a duplicate is recognised**
 
-`cache_key` = SHA-256 of the file bytes + the metadata fields that actually influence the analysis + the model, prompt, rubric and pipeline versions. Bookkeeping fields (for example, an external post ID) are left out, so changing them doesn't trigger a paid re-analysis.
+`cache_key` = SHA-256 of the file bytes + the metadata fields that actually influence the analysis + the settings that change the result (model, frame budget, vision, seed, JSON mode, Whisper model and compute type) + the prompt, rubric and pipeline versions. Bookkeeping fields (for example, an external post ID) are left out, so changing them doesn't trigger a paid re-analysis.
 
 **What happens in each case**
 

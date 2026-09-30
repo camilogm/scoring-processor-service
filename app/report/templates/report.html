@@ -156,7 +156,9 @@
   <footer>
     {% set p = a.provenance %}
     {{ a.source }} · model <code>{{ p.model }}</code> · prompt {{ p.prompt_version }} · rubric {{ p.rubric_version }}
-    · pipeline {{ p.pipeline_version }} · {{ p.judge_calls }} judge call · ${{ "%.4f" | format(p.cost_usd) }}
+    · pipeline {{ p.pipeline_version }}
+    {%- if p.vision is defined %} · {{ "up to %d frames" | format(p.max_frames) if p.vision else "no frames" }}{% endif %}
+    · {{ p.judge_calls }} judge call · ${{ "%.4f" | format(p.cost_usd) }}
     · {{ "%.1f" | format(p.duration_ms / 1000) }} s · <code>{{ a.id }}</code>
   </footer>
 {% endif %}

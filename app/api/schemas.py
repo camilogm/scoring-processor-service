@@ -112,6 +112,9 @@ class Provenance(BaseModel):
     prompt_version: str
     rubric_version: str
     pipeline_version: str
+    # Absent on analyses made before pipeline 0.3.0.
+    vision: bool | None = Field(None, description="Whether frames were sent to the judge.")
+    max_frames: int | None = Field(None, description="Frame budget for the judge call (LLM_MAX_FRAMES).")
     judge_calls: int
     cost_usd: float
     duration_ms: int
