@@ -4,7 +4,7 @@ Always say my name before start executing a new prompt. Claude code or any agent
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Clip Scoring Service: upload a short-form video, get back "post / improve / skip" with per-dimension scores, evidence and fixes. `README.md` is the full design doc (rubric, API contract, durability, model strategy); read the relevant section before changing behavior.
+Clip Scoring Service: upload a short-form video, get back "post / improve / skip" with per-dimension scores, evidence and fixes. `docs/README.md` is the full design doc (rubric, API contract, durability, model strategy); read the relevant section before changing behavior. The root `README.md` is the reviewer quickstart (setup, env vars, Makefile); keep it in sync with `example.env` and the Makefile.
 
 ## Commands
 

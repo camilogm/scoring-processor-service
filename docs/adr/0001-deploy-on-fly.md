@@ -6,7 +6,7 @@
 ## Context
 
 We need to run the service somewhere other than a laptop, with a hosted model, and know what each
-clip costs (target: under $1 per clip, README section 22).
+clip costs (target: under $1 per clip, docs/README.md section 22).
 
 We were given a Vercel AI Gateway key. That key is for **calling models** through
 `https://ai-gateway.vercel.sh/v1`. It is not a hosting credential. The design already planned for
