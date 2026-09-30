@@ -118,6 +118,8 @@ class Runner:
                 "prompt_version": PROMPT_VERSION,
                 "rubric_version": self.rubric.version,
                 "pipeline_version": PIPELINE_VERSION,
+                "vision": self.settings.llm_vision,
+                "max_frames": self.settings.llm_max_frames,
                 "judge_calls": 1,
                 "cost_usd": judged.cost_usd,
                 "duration_ms": int((time.monotonic() - started) * 1000),

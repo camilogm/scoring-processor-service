@@ -16,13 +16,19 @@ from app.api.serialize import to_response
 from app.pipeline import validate
 from app.pipeline.judge import PROMPT_VERSION
 from app.report.render import render_demo, render_report
-from app.settings import PIPELINE_VERSION
+from app.settings import PIPELINE_VERSION, Settings
 
 router = APIRouter()
 
 CHUNK = 1024 * 1024
 # Metadata fields that change the analysis (they reach the judge). Everything else is bookkeeping.
 ANALYSIS_FIELDS = ("title", "platform")
+# Settings that change the result. Explicit on purpose: hashing all of Settings would pull in timeouts,
+# the DB URL and the API key. llm_base_url stays out: the same backend is localhost locally and
+# host.docker.internal in compose.
+RESULT_SETTINGS = (
+    "llm_model", "llm_max_frames", "llm_vision", "llm_seed", "llm_json_mode", "whisper_model", "whisper_compute_type"
+)
 
 METADATA_EXAMPLE = '{"title": "Why permit approvals take so long", "account": "example_account", "platform": "tiktok", "external_id": "C07"}'
 SERVER_ERROR = error_example(500, "internal_error", "Unexpected server error.", "Unexpected server error.")
@@ -72,10 +78,11 @@ async def _save_upload(upload: UploadFile, dest_dir: Path, max_bytes: int) -> tu
     return tmp, sha.hexdigest(), size, head
 
 
-def _cache_key(file_sha: str, metadata: dict, model: str, rubric_version: str) -> str:
+def _cache_key(file_sha: str, metadata: dict, settings: Settings, rubric_version: str) -> str:
     relevant = {k: metadata.get(k) for k in ANALYSIS_FIELDS}
+    config = {k: getattr(settings, k) for k in RESULT_SETTINGS}
     material = json.dumps(
-        [file_sha, relevant, model, PROMPT_VERSION, rubric_version, PIPELINE_VERSION], sort_keys=True
+        [file_sha, relevant, config, PROMPT_VERSION, rubric_version, PIPELINE_VERSION], sort_keys=True
     )
     return hashlib.sha256(material.encode()).hexdigest()
 
@@ -154,7 +161,7 @@ async def create_analysis(
         tmp.unlink(missing_ok=True)
 
     row, created = store.create_or_get(
-        cache_key=_cache_key(file_sha, meta, settings.llm_model, rubric.version),
+        cache_key=_cache_key(file_sha, meta, settings, rubric.version),
         fresh=fresh,
         file_sha256=file_sha,
         file_path=str(final),

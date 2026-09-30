@@ -190,7 +190,9 @@
     "model": "<pinned gateway model>",
     "prompt_version": "v2",
     "rubric_version": "v2",
-    "pipeline_version": "0.2.0",
+    "pipeline_version": "0.3.0",
+    "vision": true,
+    "max_frames": 16,
     "judge_calls": 1,
     "cost_usd": 0.03,
     "duration_ms": 41000

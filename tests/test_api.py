@@ -5,6 +5,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api import routes
 from app.main import create_app
 from app.pipeline import validate
 from app.pipeline.validate import ProbeError, VideoInfo
@@ -220,3 +221,42 @@ def test_demo_page_uploads_lists_and_links_reports(client):
     assert 'type="file"' in html
     assert "/analyses" in html
     assert "/report" in html
+
+
+BASE_SETTINGS = Settings(_env_file=None)
+
+
+def _key(settings=BASE_SETTINGS, metadata=None):
+    return routes._cache_key("sha", metadata or {"title": "A"}, settings, "v2")
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("llm_model", "other-model"),
+        ("llm_max_frames", 6),
+        ("llm_vision", False),
+        ("llm_seed", 8),
+        ("llm_json_mode", False),
+        ("whisper_model", "small.en"),
+        ("whisper_compute_type", "float32"),
+    ],
+)
+def test_cache_key_changes_with_result_settings(field, value):
+    assert _key(BASE_SETTINGS.model_copy(update={field: value})) != _key()
+
+
+def test_cache_key_changes_with_pipeline_version(monkeypatch):
+    before = _key()
+    monkeypatch.setattr(routes, "PIPELINE_VERSION", "9.9.9")
+
+    assert _key() != before
+
+
+def test_cache_key_ignores_unrelated_settings_and_bookkeeping():
+    unrelated = BASE_SETTINGS.model_copy(
+        update={"llm_base_url": "http://host.docker.internal:11434/v1", "llm_api_key": "secret", "llm_timeout_s": 1.0}
+    )
+
+    assert _key(unrelated) == _key()
+    assert _key(metadata={"title": "A", "external_id": "x"}) == _key()
