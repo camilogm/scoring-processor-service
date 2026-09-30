@@ -69,8 +69,9 @@ class Runner:
         low_speech = signals["speech_ratio"] < self.rubric.speech.low_speech_ratio
 
         self.store.set_step(analysis_id, "judge")
+        # The model is chosen per upload (LLM_MODEL_CHOICES) and recorded on the row.
         judged = run_judge(
-            self.settings,
+            self.settings.model_copy(update={"llm_model": row["model_id"]}),
             segments=extraction.segments,
             words=extraction.words,
             signals=signals,

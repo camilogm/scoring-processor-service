@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     # OpenAI-compatible endpoint: Ollama locally, Vercel AI Gateway for reported runs.
     llm_base_url: str = "http://localhost:11434/v1"
     llm_model: str = "gemma3:latest"
+    # For comparing models only: comma-separated models a caller may pick per upload (POST `model`).
+    # Empty (the default) turns choice off. Keep it empty in production: whoever can upload would
+    # choose what each clip costs.
+    llm_model_choices: str = ""
     llm_api_key: str = Field(
         default="ollama",
         validation_alias=AliasChoices("LLM_API_KEY", "AI_GATEWAY_API_KEY"),
@@ -41,6 +45,12 @@ class Settings(BaseSettings):
     max_cost_per_clip_usd: float = 1.0
 
     run_worker: bool = True
+
+    @property
+    def allowed_models(self) -> list[str]:
+        """The default model first, then the extra choices; just the default when choice is off."""
+        extra = [m.strip() for m in self.llm_model_choices.split(",") if m.strip()]
+        return list(dict.fromkeys([self.llm_model, *extra]))
 
     @property
     def uploads_dir(self) -> Path:

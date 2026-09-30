@@ -421,6 +421,8 @@ Multipart form:
 - `file`: the MP4
 - `metadata`: JSON string, e.g. `{"title": "...", "account": "...", "platform": "tiktok", "external_id": "C07"}` (all optional except what's listed as required in `TBD`)
   - `external_id` is the caller's own reference (for example a sample ID or post ID). It's returned unchanged in every response, so the caller can match results to their records. It doesn't affect the analysis and isn't part of the duplicate check.
+- `model` (optional, for comparing models only): judge this clip with another model from `LLM_MODEL_CHOICES`. It is off unless that setting lists models, and anything outside the list returns `400 model_not_allowed`. Each model is a separate analysis of the same clip, because the model is part of the cache key. The `/demo` page shows a model picker when it's on, and each row shows the model and its cost.
+  - **Don't enable it in production.** Whoever can upload would choose what each clip costs, and one expensive reasoning model can cost more than the $1 budget. Keep `LLM_MODEL_CHOICES` empty outside local or private test deployments, and pin one model instead.
 
 Query parameters:
 
@@ -561,6 +563,7 @@ The `POST` handler runs `INSERT ... ON CONFLICT DO NOTHING`. If no row was inser
 
 - **Re-encoded copies aren't detected.** The same video exported twice produces different bytes and a different hash. A perceptual video hash or an audio fingerprint would catch these.
 - **`fresh=true` can be abused.** Any caller can force a paid run. In production it would sit behind an admin flag or a per-client quota.
+- **`model` has the same problem, worse.** A caller could pick the most expensive model on the list. It's off by default (`LLM_MODEL_CHOICES` empty) and meant only for comparing models during testing.
 - **Client retries after a network timeout** are already covered by content hashing. An `Idempotency-Key` header would add protection for clients that send slightly different metadata on each retry.
 - **Upload bandwidth is still spent** on duplicates, because the hash is computed while the file streams in. A client could send the hash first and skip the upload if it's already known.
 
@@ -692,6 +695,8 @@ uv run pytest                 # unit, API, storage and pipeline tests (need the 
 | `DATABASE_URL`                                          | `postgresql://clip:clip@localhost:5432/clip_scoring` | docker compose points it at the `db` service           |
 | `TEST_DATABASE_URL`                                     | `postgresql://clip:clip@localhost:5432/postgres` | Tests create and drop one database per test on this server |
 | `DATA_DIR`                                              | `var`                       | Uploads, Whisper model cache, temp work dirs                               |
+| `LLM_MODEL_CHOICES`                                     | empty (off)                 | Extra models a caller may pick per upload, for comparing models only. Keep it off in production |
+| `MAX_COST_PER_CLIP_USD`                                 | `1.0`                       | A clip whose judge call costs more is logged as over budget                |
 
 **Checks**
 

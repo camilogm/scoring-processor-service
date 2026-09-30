@@ -163,3 +163,23 @@ def test_shareable_line_missing_from_transcript_is_dropped(app_settings, stubs, 
 
     assert body["status"] == "completed", body["error"]
     assert body["potential"]["shareable_line"] is None
+
+
+def test_judge_uses_the_model_chosen_for_the_analysis(app_settings, stubs, monkeypatch):
+    judged_with = []
+
+    def fake_chat(settings, messages):
+        judged_with.append(settings.llm_model)
+        return llm_client.Completion(json.dumps(JUDGE_JSON), settings.llm_model, 1, 1, 0.0)
+
+    monkeypatch.setattr("app.pipeline.judge.chat", fake_chat)
+    choice = app_settings.model_copy(update={"llm_model_choices": "openai/gpt-5-nano"})
+    with TestClient(create_app(choice)) as c:
+        analysis_id = c.post("/analyses", files={"file": ("c.mp4", FAKE_MP4, "video/mp4")},
+                             data={"model": "openai/gpt-5-nano"}).json()["id"]
+        state = c.app.state
+        Runner(state.settings, state.store, state.rubric).run(analysis_id)
+        body = c.get(f"/analyses/{analysis_id}").json()
+
+    assert judged_with == ["openai/gpt-5-nano"]
+    assert body["provenance"]["model"] == "openai/gpt-5-nano"

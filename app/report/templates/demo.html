@@ -81,6 +81,15 @@
           <option value="youtube_shorts">YouTube Shorts</option>
         </select>
       </label>
+      {% if models|length > 1 %}
+      <label class="full">Model <span class="muted">(comparison only: LLM_MODEL_CHOICES, keep it off in production)</span>
+        <select name="model">
+          {% for m in models %}
+          <option value="{{ m }}"{% if m == default_model %} selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endif %}
       <label class="check full"><input type="checkbox" name="fresh"> Force a fresh analysis (skip deduplication)</label>
       <div class="actions full">
         <button class="primary" type="submit">Upload and analyse</button>
@@ -127,6 +136,7 @@ function row(a) {
     meta.push(el("span", { className: `pill v-${a.overall.verdict}`, textContent: a.overall.verdict_label || a.overall.verdict }));
     meta.push(el("span", { className: "score", textContent: `${a.overall.score} / 10` }));
   }
+  if (a.provenance) meta.push(el("span", { textContent: `${a.provenance.model} · $${a.provenance.cost_usd.toFixed(4)}` }));
   meta.push(el("span", { textContent: when(a.created_at) }));
 
   const report = el("a", { href: `/analyses/${encodeURIComponent(a.id)}/report`, target: "_blank", rel: "noopener", textContent: "Report" });
@@ -179,6 +189,7 @@ $("#upload").addEventListener("submit", async (event) => {
   const body = new FormData();
   body.append("file", f.file.files[0]);
   if (Object.keys(metadata).length) body.append("metadata", JSON.stringify(metadata));
+  if (f.model) body.append("model", f.model.value);
 
   submit.disabled = true;
   msg.className = "msg";
