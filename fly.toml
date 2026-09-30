@@ -1,0 +1,45 @@
+# Fly.io deployment: the same Dockerfile as docker compose, run as one long-lived machine.
+# Why Fly and not Vercel: docs/adr/0001-deploy-on-fly.md. Setup and deploy: `make fly-setup`, `make deploy`.
+# `make` passes the app name (FLY_APP) with -a, so this value is only the default.
+app = "clip-scoring"
+primary_region = "dfw"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DATA_DIR = "/data"
+  HF_HOME = "/data/models"  # Whisper model survives deploys and restarts
+  AUTO_RUN_MIGRATIONS = "true"
+  LLM_BASE_URL = "https://ai-gateway.vercel.sh/v1"
+  LLM_MODEL = "google/gemini-2.5-flash"
+  LLM_VISION = "true"
+  LLM_MAX_FRAMES = "16"
+  MAX_COST_PER_CLIP_USD = "1.0"
+  # AI_GATEWAY_API_KEY and DATABASE_URL are secrets (make fly-setup), never in this file.
+
+# Uploads and the Whisper cache. A volume belongs to one machine, which is what the design
+# needs anyway: the in-process queue and the startup sweep assume a single instance.
+[[mounts]]
+  source = "clip_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 9500
+  force_https = true
+  # Fly Proxy stops idle machines based on HTTP traffic, not on the worker thread: an
+  # analysis running after the 202 would be cut off. Keep the machine up.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "15s"
+    timeout = "3s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"  # ffmpeg + faster-whisper

@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Fallback cost estimate when the provider doesn't report cost in `usage`.
     llm_price_input_per_mtok: float = 0.0
     llm_price_output_per_mtok: float = 0.0
+    # Budget per analysis (one judge call). Going over it is logged, not enforced: the cost is
+    # only known after the call.
+    max_cost_per_clip_usd: float = 1.0
 
     run_worker: bool = True
 
