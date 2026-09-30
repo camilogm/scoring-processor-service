@@ -105,6 +105,53 @@ def test_malformed_metadata_is_rejected(client):
     assert res.json()["error"]["code"] == "invalid_metadata"
 
 
+@pytest.mark.parametrize("platform", ["tiktok", "instagram"])
+def test_supported_platforms_are_accepted(client, platform):
+    res = _post(client, metadata=json.dumps({"platform": platform}))
+
+    assert res.status_code == 202
+    assert res.json()["metadata"]["platform"] == platform
+
+
+@pytest.mark.parametrize("platform", ["youtube_shorts", "TikTok", ""])
+def test_platforms_out_of_scope_are_rejected(client, platform):
+    res = _post(client, metadata=json.dumps({"platform": platform}))
+
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "invalid_metadata"
+
+
+def test_stored_analysis_from_an_old_platform_still_reads(client):
+    # Rows stored before the platform allowlist must not turn GET into a 500.
+    analysis_id = _post(client).json()["id"]
+    with client.app.state.store.pool.connection() as conn:
+        conn.execute("UPDATE analyses SET metadata_json = %s WHERE id = %s",
+                     (json.dumps({"platform": "youtube_shorts"}), analysis_id))
+
+    res = client.get(f"/analyses/{analysis_id}")
+
+    assert res.status_code == 200
+    assert res.json()["metadata"]["platform"] == "youtube_shorts"
+
+
+def test_format_check_is_returned_before_the_analysis_runs(client):
+    body = _post(client).json()
+
+    assert body["format_check"]["status"] == "optimal"
+    assert client.get(f"/analyses/{body['id']}").json()["format_check"]["aspect_ratio"] == "9:16"
+
+
+def test_horizontal_clip_is_flagged_but_still_analysed(client, monkeypatch):
+    monkeypatch.setattr(
+        validate, "probe", lambda p: VideoInfo(duration_s=42.0, width=1920, height=1080, fps=30.0, has_audio=True)
+    )
+
+    res = _post(client)
+
+    assert res.status_code == 202
+    assert res.json()["format_check"]["status"] == "not_optimal"
+
+
 def test_missing_file_is_rejected(client):
     res = client.post("/analyses", data={"metadata": "{}"})
 
@@ -223,6 +270,14 @@ def test_demo_page_uploads_lists_and_links_reports(client):
     assert 'type="file"' in html
     assert "/analyses" in html
     assert "/report" in html
+
+
+def test_demo_page_offers_only_the_supported_platforms(client):
+    html = client.get("/demo").text
+
+    assert 'value="tiktok"' in html
+    assert 'value="instagram"' in html
+    assert "youtube" not in html.lower()
 
 
 @pytest.fixture

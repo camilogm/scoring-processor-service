@@ -25,6 +25,14 @@ class ProbeError(Exception):
         self.message = message
 
 
+def _rotation(video: dict) -> int:
+    """Degrees players rotate the stored frame: display matrix (current ffmpeg) or the legacy `rotate` tag."""
+    for side in video.get("side_data_list") or []:
+        if "rotation" in side:
+            return int(float(side["rotation"]))
+    return int(float((video.get("tags") or {}).get("rotate") or 0))
+
+
 def probe(path: Path) -> VideoInfo:
     try:
         proc = subprocess.run(
@@ -53,10 +61,15 @@ def probe(path: Path) -> VideoInfo:
     except (ZeroDivisionError, ValueError):
         fps = 0.0
 
+    width, height = int(video.get("width") or 0), int(video.get("height") or 0)
+    # Phones store vertical video as 1920x1080 plus a quarter turn; report what the viewer sees.
+    if _rotation(video) % 180 == 90:
+        width, height = height, width
+
     return VideoInfo(
         duration_s=float(duration),
-        width=int(video.get("width") or 0),
-        height=int(video.get("height") or 0),
+        width=width,
+        height=height,
         fps=round(fps, 3),
         has_audio=any(s.get("codec_type") == "audio" for s in streams),
     )

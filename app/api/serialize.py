@@ -2,6 +2,8 @@
 
 from datetime import UTC, datetime
 
+from app.pipeline.format_check import check_format
+
 # Stored with the input for the pipeline, not part of the public contract.
 _INTERNAL_INPUT_FIELDS = ("has_audio",)
 
@@ -24,6 +26,8 @@ def to_response(row: dict, *, source: str | None = None, deduplicated: bool = Fa
         "finished_at": _iso(row["finished_at"]),
         "input": input_facts,
         "metadata": row["metadata_json"],
+        # Derived from the probed size, so it is there from the upload on, for old analyses too.
+        "format_check": check_format(input_facts.get("width") or 0, input_facts.get("height") or 0),
         **result,
         "error": {"code": row["error_code"], "message": row["error_message"]} if row["status"] == "failed" else None,
     }
