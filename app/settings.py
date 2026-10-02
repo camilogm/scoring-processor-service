@@ -4,7 +4,7 @@ from pathlib import Path
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PIPELINE_VERSION = "0.3.0"
+PIPELINE_VERSION = "0.3.1"
 
 
 class Settings(BaseSettings):
