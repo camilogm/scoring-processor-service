@@ -114,11 +114,15 @@ def chat(settings: Settings, messages: list[dict]) -> Completion:
     reported = (usage.model_extra or {}).get("cost") if usage else None
     if reported is None and (resp.id or "").startswith("gen_"):
         reported = _gateway_cost(settings, resp.id)
-    cost = (
-        float(reported)
-        if reported is not None
-        else (input_tokens * settings.llm_price_input_per_mtok + output_tokens * settings.llm_price_output_per_mtok) / 1e6
-    )
+    if reported is not None:
+        cost = float(reported)
+    else:
+        # Unset prices only pass Settings validation on a local endpoint, where the call is free.
+        price_in = settings.llm_price_input_per_mtok or 0.0
+        price_out = settings.llm_price_output_per_mtok or 0.0
+        cost = (input_tokens * price_in + output_tokens * price_out) / 1e6
+        if not settings.llm_is_local:
+            log.warning("Cost of %s not reported by the provider; estimated from LLM_PRICE_*: $%.6f", resp.id, cost)
     if cost > settings.max_cost_per_clip_usd:
         log.warning(
             "Judge call cost $%.4f, over the $%.2f per-clip budget (MAX_COST_PER_CLIP_USD)",
