@@ -158,6 +158,20 @@ def test_quote_missing_from_transcript_lowers_confidence(make_drafts, rubric, ba
     assert [c["rule"] for c in result.contradictions] == ["quote_not_in_transcript"]
 
 
+def test_on_screen_text_quotes_are_not_checked_against_the_transcript(make_drafts, rubric, base_signals):
+    # Real C30 run: the judge quoted text it read in the frames, which is never in the transcript.
+    drafts = make_drafts()
+    drafts["on_screen_text"].evidence = [
+        "A headline-like text 'BUREIJ CAMP TODAY 3-6-2024' appears at 2.8s.",
+        "A data chart with a headline 'The European countries home to the most migrants' is shown at 17.3s.",
+    ]
+
+    result = verify(drafts, base_signals, BoundaryFlags(), rubric, words=C30_WORDS)
+
+    assert result.contradictions == []
+    assert drafts["on_screen_text"].confidence == "high"
+
+
 def test_transcript_line_citations_are_formatted_and_checked(make_drafts, rubric, base_signals):
     # gemma3 copies the transcript's "[20.5s] ..." prefix into evidence, without quote marks.
     drafts = make_drafts()

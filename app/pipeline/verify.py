@@ -17,6 +17,8 @@ _QUOTE = re.compile(r"“([^”]+)”|\"([^\"]+)\"|(?<!\w)'([^']+)'(?!\w)")
 _LINE_CITATION = re.compile(r"^\[(\d+(?:\.\d+)?)s\]\s*(.+)$")  # "[20.5s] ..." copied from the transcript
 QUOTE_MIN_WORDS = 3  # shorter quotes ("And", "that") match anywhere
 QUOTE_MIN_SIMILARITY = 0.75  # tolerates Whisper vs model wording ("gonna" / "going to")
+# Quotes in these come from the frames (captions, headlines, charts), so the transcript can't check them.
+FRAME_DIMENSIONS = {"on_screen_text"}
 
 
 @dataclass
@@ -186,6 +188,8 @@ def _quoted_evidence(
         return
     tolerance = rubric.verify.quote_tolerance_s
     for draft in drafts.values():
+        if draft.id in FRAME_DIMENSIONS:
+            continue
         flagged = False
         for i, ev in enumerate(draft.evidence):
             cited_line = _LINE_CITATION.match(ev)

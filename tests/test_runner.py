@@ -142,7 +142,7 @@ def test_completed_response_matches_documented_contract(app_settings, stubs):
     assert body["created_at"].endswith("Z")
     assert body["potential"]["caveat"] == CONTRACT["potential"]["caveat"]
     assert body["provenance"]["prompt_version"] == "v2"
-    assert body["provenance"]["pipeline_version"] == "0.3.0"
+    assert body["provenance"]["pipeline_version"] == "0.3.1"
     assert body["provenance"]["vision"] is True
     assert body["provenance"]["max_frames"] == 16
     assert isinstance(body["signals"]["cuts"], int)

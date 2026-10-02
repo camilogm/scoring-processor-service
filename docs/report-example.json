@@ -208,7 +208,7 @@
     "model": "<pinned gateway model>",
     "prompt_version": "v2",
     "rubric_version": "v2",
-    "pipeline_version": "0.3.0",
+    "pipeline_version": "0.3.1",
     "vision": true,
     "max_frames": 16,
     "judge_calls": 1,
