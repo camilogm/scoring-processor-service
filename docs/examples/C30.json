@@ -1,0 +1,231 @@
+{
+  "id": "an_01a0fa98637bb38091f3abaf",
+  "status": "completed",
+  "current_step": null,
+  "source": "fresh",
+  "deduplicated": false,
+  "created_at": "2026-10-02T03:11:26Z",
+  "finished_at": "2026-10-02T03:12:06Z",
+  "input": {
+    "filename": "C30.mp4",
+    "sha256": "99f192841f429b5191665265b9b03b0cd7a9ce227335d23251e80759fcc1adda",
+    "size_bytes": 5815058,
+    "duration_s": 46.63,
+    "width": 720,
+    "height": 1280,
+    "fps": 24.0
+  },
+  "metadata": {
+    "title": "Wolff on Europe and migration",
+    "account": "robinsonspodcast",
+    "platform": "tiktok",
+    "external_id": "C30"
+  },
+  "format_check": {
+    "status": "acceptable",
+    "aspect_ratio": "9:16",
+    "orientation": "vertical",
+    "platforms": [
+      "instagram",
+      "tiktok"
+    ],
+    "recommended": {
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16"
+    },
+    "issues": [
+      {
+        "check": "resolution",
+        "status": "acceptable",
+        "message": "720×1280 is below the recommended 1080×1920.",
+        "fix": "Export from a higher-resolution source at 1080×1920."
+      }
+    ]
+  },
+  "duration_check": {
+    "status": "within_target",
+    "duration_s": 46.63,
+    "target_s": 180,
+    "limit_s": 240.0
+  },
+  "mode": "speech",
+  "overall": {
+    "score": 6.0,
+    "raw_score": 6.1,
+    "verdict": "improve",
+    "verdict_label": "Improve before posting",
+    "capped": true,
+    "cap_reason": "Clip starts mid-sentence (speech already active at 0:00, opens with “if”).",
+    "summary": "The clip argues that continued bombing in Iran will lead to an unmanageable migration crisis for Europe, which is already struggling with the issue.",
+    "point": "Continued bombing in Iran will trigger a new, unmanageable wave of migration to Europe, exacerbating existing social tensions."
+  },
+  "potential": {
+    "helps": [
+      "Clear and direct argument about a pressing geopolitical issue.",
+      "Use of maps and relevant imagery to illustrate points.",
+      "Strong, opinionated delivery by the speaker."
+    ],
+    "holds_back": [
+      "Starts mid-sentence, requiring viewers to infer initial context.",
+      "The 'Gaza-like' comparison might be controversial or require prior knowledge.",
+      "Repetitive phrasing like 'sick cycle again' could be tightened."
+    ],
+    "shareable_line": {
+      "t": 20.54,
+      "text": "They can't handle more migration, but where the hell is that migration gonna go?",
+      "note": "This rhetorical question encapsulates the core dilemma and urgency of the clip's argument."
+    },
+    "caveat": "Signals commonly linked to watching and sharing, read from this clip alone. Not a forecast of views."
+  },
+  "priority_fixes": [
+    {
+      "rank": 1,
+      "dimension": "hook",
+      "label": "Hook",
+      "fix": "Re-edit to start with a clear topic statement or question, defining 'they' and 'this war' upfront.",
+      "weighted_gap": 2.0
+    },
+    {
+      "rank": 2,
+      "dimension": "standalone_completeness",
+      "label": "Standalone completeness",
+      "fix": "Add an introductory sentence or phrase to clarify 'they' and 'this war' at the beginning.",
+      "weighted_gap": 1.2
+    },
+    {
+      "rank": 3,
+      "dimension": "pacing_energy",
+      "label": "Pacing and energy",
+      "fix": "Break up the 13.5 s static shot at 0:33–0:47 with b-roll, a punch-in or a text card.",
+      "weighted_gap": 0.3
+    }
+  ],
+  "dimensions": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "score": 2,
+      "weight": 0.25,
+      "weighted_gap": 2.0,
+      "confidence": "high",
+      "basis": "mixed",
+      "applicable": true,
+      "evidence": [
+        "Starts with \"if they continue with this war.\" (0:00), lacking immediate context.",
+        "Refers to \"they\" and \"this war\" without prior explanation in the first 3 seconds."
+      ],
+      "fix": "Re-edit to start with a clear topic statement or question, defining 'they' and 'this war' upfront."
+    },
+    {
+      "id": "standalone_completeness",
+      "label": "Standalone completeness",
+      "score": 4,
+      "weight": 0.2,
+      "weighted_gap": 1.2,
+      "confidence": "high",
+      "basis": "mixed",
+      "applicable": true,
+      "evidence": [
+        "Starts mid-sentence with \"if they continue with this war.\" (0:00), requiring prior context for 'they' and 'this war'.",
+        "The argument about migration to Europe is fully explained within the clip.",
+        "Ends cleanly with \"welcome that. Yeah.\" (0:45), concluding the thought.",
+        "Clip starts mid-sentence (speech already active at 0:00, opens with “if”). (measured)"
+      ],
+      "fix": "Add an introductory sentence or phrase to clarify 'they' and 'this war' at the beginning."
+    },
+    {
+      "id": "clarity_payoff",
+      "label": "Message clarity and payoff",
+      "score": 10,
+      "weight": 0.2,
+      "weighted_gap": 0.0,
+      "confidence": "high",
+      "basis": "judged",
+      "applicable": true,
+      "evidence": [
+        "The main point, a new migration cycle to Europe, is stated early (0:08).",
+        "The clip consistently argues Europe cannot handle this migration (0:15, 0:20).",
+        "The payoff is clear: \"the working class in Europe is not going to welcome that.\" (0:43)."
+      ],
+      "fix": null
+    },
+    {
+      "id": "pacing_energy",
+      "label": "Pacing and energy",
+      "score": 8,
+      "weight": 0.15,
+      "weighted_gap": 0.3,
+      "confidence": "high",
+      "basis": "measured",
+      "applicable": true,
+      "evidence": [
+        "163 words per minute (comfortable range 140–195).",
+        "Speech covers 91% of the clip.",
+        "19.3 cuts per minute (35 / 19 / 4 by third).",
+        "No cut for the last 13.5 s, from 0:33 (typical shot 1.6 s)."
+      ],
+      "fix": "Break up the 13.5 s static shot at 0:33–0:47 with b-roll, a punch-in or a text card."
+    },
+    {
+      "id": "audio_quality",
+      "label": "Audio and speech quality",
+      "score": 8,
+      "weight": 0.1,
+      "weighted_gap": 0.2,
+      "confidence": "high",
+      "basis": "measured",
+      "applicable": true,
+      "evidence": [
+        "Integrated loudness -20.7 LUFS (platform target about -14).",
+        "True peak -6.3 dBTP.",
+        "Speech recognition confidence (avg log-prob) -0.20."
+      ],
+      "fix": "Normalise loudness to about -14 LUFS (currently -20.7)."
+    },
+    {
+      "id": "on_screen_text",
+      "label": "On-screen text",
+      "score": 8,
+      "weight": 0.1,
+      "weighted_gap": 0.2,
+      "confidence": "high",
+      "basis": "judged",
+      "applicable": true,
+      "evidence": [
+        "Captions are present throughout the clip, e.g., \"IF THEY\" (0:00), \"GO TO EUROPE\" (0:26).",
+        "Captions are readable and well-placed, not obstructing the speaker or visuals.",
+        "No headline or title text is present in the first frame to state the hook."
+      ],
+      "fix": "Add a headline or title card at the beginning that summarizes the clip's hook."
+    }
+  ],
+  "signals": {
+    "time_to_first_word_s": 0.0,
+    "words_per_minute": 163.4,
+    "speech_ratio": 0.907,
+    "longest_pause": null,
+    "pauses_over_1s": 0,
+    "cuts": 15,
+    "cuts_per_minute": 19.3,
+    "integrated_loudness_lufs": -20.7,
+    "clipping": false,
+    "transcript_confidence": 0.944
+  },
+  "verification": {
+    "checks_run": 4,
+    "contradictions": []
+  },
+  "provenance": {
+    "model": "google/gemini-2.5-flash",
+    "prompt_version": "v2",
+    "rubric_version": "v2",
+    "pipeline_version": "0.3.0",
+    "vision": true,
+    "max_frames": 16,
+    "judge_calls": 1,
+    "cost_usd": 0.007245,
+    "duration_ms": 40273
+  },
+  "error": null
+}

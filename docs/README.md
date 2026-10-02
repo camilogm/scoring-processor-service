@@ -19,7 +19,7 @@ The service is built around one principle: **measure first, judge second, verify
 
 The scope of this version is deliberately focused. It covers the full path from upload to a stored, retrievable result, within the 12-hour effort cap and with a buffer reserved for risk. Every item left out is documented, with its reason, in [section 23](#23-future-improvements).
 
-> **Document status.** This is the design proposal. Items marked _Pending_ are completed after the build: measured cost, real outputs, repeatability results and the final reflection.
+> **Document status.** This is the design proposal. Items marked _Pending_ are completed after the build: measured cost, repeatability results and the final reflection. A real output is in [section 19](#19-example-requests-and-output).
 
 ---
 
@@ -242,7 +242,7 @@ This table separates what is assumed from what is tested, and is updated as resu
 | -------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------- |
 | A strong hook keeps viewers watching               | Assumption (industry consensus) | Requires retention data, which the dataset does not include                      |
 | Clips that start or end mid-sentence perform worse | Assumption                      | Directional check: capped versus uncapped clips against account-normalised views |
-| Scores are stable across fresh runs                | To be tested                    | Repeatability experiment ([section 21](#21-verification))                        |
+| Scores are stable across fresh runs                | Tested on 2 clips × 5 runs: verdict and overall score unchanged; one judged run moved two areas by one step | Repeatability experiment ([section 21](#repeatability-results))                  |
 | The rubric does not favour one production style    | To be tested                    | Score distribution per account                                                   |
 | The measured signals are accurate on these clips   | To be tested                    | Manual review of five clips                                                      |
 | Cost remains under $1 per clip                     | To be measured                  | Per-request usage data from the model gateway                                    |
@@ -634,83 +634,104 @@ curl http://localhost:9500/health
 ## 19. Example requests and output
 
 ```bash
-# Submit a clip
-curl -X POST http://localhost:9500/analyses \
-  -F "file=@data/videos/C07.mp4" \
-  -F 'metadata={"title": "Why permit approvals take so long", "account": "example_account", "external_id": "C07"}'
+# Submit a clip (C30 from the sample dataset)
+curl -X POST "http://localhost:9500/analyses?fresh=true" \
+  -F "file=@dataset/videos/C30.mp4" \
+  -F 'metadata={"title": "Wolff on Europe and migration", "account": "robinsonspodcast", "platform": "tiktok", "external_id": "C30"}'
 
 # Retrieve the analysis
-curl http://localhost:9500/analyses/<id>
+curl http://localhost:9500/analyses/an_01a0fa98637bb38091f3abaf
 ```
 
-Illustrative output, abridged. It is replaced with a real output after the build. The full response behind the example report is available in [`report-example.json`](report-example.json), and every field is described in [section 20](#20-html-report).
+Real output, abridged to one area and one fix. The unedited response is [`examples/C30.json`](examples/C30.json); how it was produced and how to reproduce it is in the [root README](../README.md#a-real-analysis). [`report-example.json`](report-example.json) stays as the contract fixture the tests diff against, and every field is described in [section 20](#20-html-report).
 
 ```json
 {
-  "id": "an_01J8XK4Q2M7C9D3F5H6J8K0N1P",
+  "id": "an_01a0fa98637bb38091f3abaf",
   "status": "completed",
-  "current_step": null,
   "source": "fresh",
-  "input": { "filename": "C07.mp4", "sha256": "9f2c…e41a", "duration_s": 74.2 },
+  "input": {
+    "filename": "C30.mp4",
+    "sha256": "99f192841f429b5191665265b9b03b0cd7a9ce227335d23251e80759fcc1adda",
+    "duration_s": 46.63,
+    "width": 720,
+    "height": 1280
+  },
   "metadata": {
-    "title": "Why permit approvals take so long",
-    "external_id": "C07"
+    "title": "Wolff on Europe and migration",
+    "account": "robinsonspodcast",
+    "platform": "tiktok",
+    "external_id": "C30"
+  },
+  "format_check": {
+    "status": "acceptable",
+    "aspect_ratio": "9:16"
+  },
+  "duration_check": {
+    "status": "within_target"
   },
   "mode": "speech",
   "overall": {
-    "score": 6.6,
+    "score": 6.0,
+    "raw_score": 6.1,
     "verdict": "improve",
-    "capped": false,
-    "summary": "Clear, well-delivered point with a strong ending, but the first six seconds are setup and captions only start at 0:18.",
-    "point": "Permit approvals take 14 months on average, and the guest argues a 90-day limit would fix it."
+    "capped": true,
+    "cap_reason": "Clip starts mid-sentence (speech already active at 0:00, opens with “if”).",
+    "summary": "The clip argues that continued bombing in Iran will lead to an unmanageable migration crisis for Europe, which is already struggling with the issue."
   },
   "potential": {
-    "helps": [
-      "A concrete, surprising number (14 months) that people repeat when they share."
-    ],
-    "holds_back": [
-      "The first six seconds are setup, so many viewers scroll away before the claim."
-    ],
     "shareable_line": {
-      "t": 6.0,
-      "text": "Fourteen months to approve a permit that should take ninety days."
+      "t": 20.54,
+      "text": "They can't handle more migration, but where the hell is that migration gonna go?"
     }
   },
   "priority_fixes": [
     {
       "rank": 1,
       "dimension": "hook",
-      "fix": "Start the clip at 0:06, where the main claim begins…",
-      "weighted_gap": 1.25
+      "label": "Hook",
+      "fix": "Re-edit to start with a clear topic statement or question, defining 'they' and 'this war' upfront.",
+      "weighted_gap": 2.0
     }
   ],
   "dimensions": [
     {
       "id": "hook",
       "label": "Hook",
-      "score": 5,
+      "score": 2,
       "weight": 0.25,
-      "weighted_gap": 1.25,
+      "weighted_gap": 2.0,
       "confidence": "high",
       "basis": "mixed",
+      "applicable": true,
       "evidence": [
-        "First word at 0.4 s, so there is no dead air.",
-        "0:00 to 0:06 is background context; the main claim only arrives at 0:06."
+        "Starts with \"if they continue with this war.\" (0:00), lacking immediate context.",
+        "Refers to \"they\" and \"this war\" without prior explanation in the first 3 seconds."
       ],
-      "fix": "Start the clip at 0:06, where the main claim begins, or add a headline that states the claim from the first frame."
+      "fix": "Re-edit to start with a clear topic statement or question, defining 'they' and 'this war' upfront."
     }
   ],
   "signals": {
-    "time_to_first_word_s": 0.4,
-    "words_per_minute": 168,
-    "longest_pause": { "t": 41.0, "duration_s": 1.8 }
+    "time_to_first_word_s": 0.0,
+    "words_per_minute": 163.4,
+    "speech_ratio": 0.907,
+    "cuts_per_minute": 19.3,
+    "integrated_loudness_lufs": -20.7
   },
-  "verification": { "checks_run": 3, "contradictions": [] },
+  "verification": {
+    "checks_run": 4,
+    "contradictions": []
+  },
   "provenance": {
-    "model": "<pinned gateway model>",
-    "rubric_version": "v1",
-    "cost_usd": 0.03,
-    "duration_ms": 41000
+    "model": "google/gemini-2.5-flash",
+    "prompt_version": "v2",
+    "rubric_version": "v2",
+    "pipeline_version": "0.3.0",
+    "vision": true,
+    "max_frames": 16,
+    "judge_calls": 1,
+    "cost_usd": 0.007245,
+    "duration_ms": 40273
   },
   "error": null
 }
@@ -728,7 +749,7 @@ The report presents a single analysis in a form a business stakeholder can read 
 
 The report covers **one clip**, consistent with how clips are submitted. There is no overview or ranking page, since clips are independent (see [section 4](#4-assumptions)).
 
-An example with illustrative data is available at [`docs/report-example.html`](docs/report-example.html), rendered from [`report-example.json`](report-example.json).
+The real analysis from [section 19](#19-example-requests-and-output) renders at `GET /analyses/an_01a0fa98637bb38091f3abaf/report` on the deployed service (see the [root README](../README.md#a-real-analysis)); locally, any completed analysis renders the same way.
 
 ### The report contract
 
@@ -817,14 +838,96 @@ Unlike Retensis and ClipAPI, the report does **not** include a predicted retenti
 | Unit tests       | Scoring arithmetic, cap rule, weight rescaling, validation                                              | _Pending_ |
 | API tests        | Every documented error code                                                                             | _Pending_ |
 | Crash durability | `scripts/restart_check.sh`: upload, forced stop, restart, retrieval                                     | _Pending_ |
-| Repeatability    | `scripts/repeatability.py`: five fresh runs on two clips, reporting score variation and verdict changes | _Pending_ |
+| Repeatability    | `scripts/repeatability.py`: five fresh runs on two clips, reporting score variation and verdict changes | Done: no verdict or overall-score change; details below |
 | Dataset run      | `scripts/run_dataset.py`: all 30 clips, scores against account-normalised views                         | _Pending_ |
+
+### Repeatability results
+
+**Setup.** Two clips from different accounts and at different ends of the scale, five fresh analyses each (`?fresh=true`, so every run paid for a new model call and none was read from the store), run on 2 October 2026 against the deployed service. Same file, metadata and configuration in every run: `google/gemini-2.5-flash`, temperature 0, seed 7, prompt `v2`, rubric `v2`, pipeline `0.3.0`, 16 frames.
+
+```bash
+CLIP_API_URL=https://clip-scoring.fly.dev CLIP_API_AUTH=user:password \
+  uv run python scripts/repeatability.py dataset/videos/C30.mp4 --runs 5 \
+  --metadata '{"title": "Wolff on Europe and migration", "account": "robinsonspodcast", "platform": "tiktok"}'
+# and the same for C10 with {"title": "Why the US needs Canada", "account": "americanpowerpodcast", "platform": "tiktok"}
+```
+
+**Results.**
+
+| Clip | Overall (5 runs) | Verdict | Raw score | Areas that moved | Distinct outputs |
+| --- | --- | --- | --- | --- | --- |
+| C30, Robinson's Podcast, 46.6 s | 6.0 × 5 | `improve` × 5 | 6.1 × 4, **6.4 × 1** | Hook 2 → 4 and on-screen text 8 → 6, in the same run | 2 of 5 |
+| C10, American Power, 64.0 s | 9.7 × 5 | `post` × 5 | 9.65 × 5 | none | 1 of 5 |
+
+"Distinct outputs" compares the full response with IDs, timing, cost and `external_id` removed: four C30 runs and all five C10 runs were byte-identical, text included.
+
+**What the outlier run shows.** The one different C30 run (`an_01a0fa9f42e167fe9430d90c`) is a different reading of the clip, not noise in one number: the model judged the opening a complete sentence, rated completeness 8 and the hook 4, and cited on-screen text the other runs did not mention. Two things kept the decision stable:
+
+- **Verification overrode the model.** The boundary rule measured speech at 0:00 plus a lowercase "if" opener and capped completeness at 4 ("Boundary cut measured; judge scored completeness 8, capped at 4"), so the final completeness score matched the other four runs.
+- **The cap absorbed the rest.** The raw score moved 6.1 → 6.4, but the mid-sentence cap holds the overall at 6.0, so the verdict could not change.
+
+**What this means.**
+
+- **Measured areas do not move**: pacing and audio were identical in all ten runs, as expected from code.
+- **Judged areas can move by one anchor step** (2 points on the 0–10 scale, one step on the model's 0–5 scale), and they moved together in one run, which is the cross-influence the single call risks ([section 11](#11-tools-feasibility-and-model-judgment)).
+- **The verdict held in 10 of 10 runs**, but both clips sit far from a threshold or under the cap. A clip scoring near 5.0 or 7.0 without a cap could flip on a one-step move: a hook change of 2 points shifts the overall by 0.5. This experiment does not cover that case.
+- **Billed cost varied with identical output**: $0.0058 to $0.0084 per run, with byte-identical responses billed differently. Gemini 2.5 Flash bills its hidden reasoning tokens as output: in a separate test call 712 of 734 billed output tokens were reasoning, and the visible answer was 22. The amount of reasoning varies between runs while the answer does not. The service stores the cost but not the token split, so the split per run is not measured.
+
+**Found by this experiment: a false positive in verification.** The `quote_not_in_transcript` rule checks quotes in every area against the transcript, including on-screen text, whose quotes come from the frames. In the outlier run it flagged "BUREIJ CAMP TODAY 3-6-2024", a caption visible on screen, as unsupported. Fixed in pipeline `0.3.1` ([#14](https://github.com/camilogm/scoring-processor-service/pull/14)): the rule now skips `on_screen_text`, whose quotes only OCR could check. The results above come from `0.3.0`.
+
+**Not covered.** Two clips is a small sample; a clip near a verdict threshold; other models; repeatability over days (the provider can change the model behind a pinned name); local runs with Ollama.
 
 ## 22. Cost
 
-Target: under $1 per clip. Transcription runs locally, so cost is driven mainly by the single model call. The actual cost of each analysis is taken from the gateway's usage data and stored with the result.
+Target: under $1 per clip. **Measured: $0.0070 per clip on average, about 140 times under the target.**
 
-Measured average: _Pending._
+### What is paid for
+
+Only the judge call. ffmpeg, faster-whisper (`base.en`, int8 on CPU) and PySceneDetect run on the service's own machine, so they cost compute time but no API fees. `cost_usd` therefore covers the model call alone; hosting (one Fly `shared-cpu-2x` machine with 2 GB) is a fixed monthly cost, not a cost per clip.
+
+### How the cost is calculated
+
+`app/llm/client.py` records one number per analysis, `provenance.cost_usd`, from the first of three sources that exists:
+
+1. **The billed cost in the response.** Vercel AI Gateway returns it in `usage.cost` with every call. This is the normal path.
+2. **The gateway's record of that call**, `GET /v1/generation?id=gen_...`, retried up to five times two seconds apart because the record appears a few seconds after the call.
+3. **An estimate**: input tokens × `LLM_PRICE_INPUT_PER_MTOK` + output tokens × `LLM_PRICE_OUTPUT_PER_MTOK`, divided by a million, logged as an estimate.
+
+The third source used to default to a price of 0, so a clip whose cost the gateway did not report would have been stored as costing $0. Since [#15](https://github.com/camilogm/scoring-processor-service/pull/15) the service **refuses to start** when a non-local endpoint has no API key or no prices, and the error lists every missing variable. A local Ollama is free and needs neither.
+
+### How the calculation was verified
+
+| Check | Result |
+| --- | --- |
+| **Recompute one call from its tokens.** A direct call to `google/gemini-2.5-flash` through the gateway, priced with the list price the gateway publishes at `GET /v1/models` ($0.30 per million input tokens, $2.50 per million output tokens) | 12 input × $0.30/M + 734 output × $2.50/M = **$0.0018386**. The gateway's record of the call: **$0.0018386**. The `usage.cost` in the response: **$0.0018386**. Equal to the eighth decimal |
+| **No stored cost is an estimate.** The deployment had no prices set, so source 3 could only produce $0 | All 20 completed analyses on the deployment have a cost above $0, so every one is the billed cost from source 1 or 2 |
+| **Unit tests** (`tests/test_llm_client.py`, `tests/test_settings.py`) | Each source, the retries while the gateway records the call, the over-budget log, and the startup refusal |
+| **Account balance before and after one analysis** | Not usable. The gateway account is shared and its spend rose about $0.35 a minute with nothing of ours running, about fifty times the cost of one analysis |
+
+The recompute also showed where the money goes: **712 of the 734 billed output tokens were hidden reasoning**, and the visible answer was 22. Gemini 2.5 Flash bills its thinking as output, which explains why identical analyses were billed different amounts ([repeatability results](#repeatability-results)).
+
+### Measured cost and time
+
+19 completed analyses of 5 clips with `google/gemini-2.5-flash` on the deployment, 30 September to 2 October 2026:
+
+| | Mean | Median | Range |
+| --- | --- | --- | --- |
+| Cost per clip | $0.0070 | $0.0071 | $0.0053 to $0.0119 |
+| Time per clip, upload to result | 32.8 s | 26.7 s | 21.6 s to 70.5 s |
+
+| Clip | Length | Runs | Mean cost | Mean time |
+| --- | --- | --- | --- | --- |
+| C03 | 32 s | 2 | $0.0059 | 27.3 s |
+| C27 | 34 s | 1 | $0.0073 | 37.4 s |
+| C30 | 47 s | 8 | $0.0070 | 31.9 s |
+| C10 | 64 s | 7 | $0.0066 | 29.3 s |
+| A non-dataset clip | 194 s | 1 | $0.0119 | 70.5 s |
+
+Cost grows slowly with length, because the 16 frames, the prompt and the reasoning are a fixed share and only the transcript grows: a 194 s clip, just past the 3-minute scope, cost $0.012. Time grows faster, most likely because transcription on a shared CPU scales with the audio (the time of each step is not recorded). The very first analysis on a new machine also downloads the Whisper model once (about 150 MB, kept on the volume afterwards).
+
+**Reproduce:** `GET /analyses?limit=200` lists every analysis with `provenance.cost_usd` and `provenance.duration_ms`. `make spend` shows the gateway account's balance.
+
+**Limits of these numbers.** Five clips, one model, one machine size. The cost is per analysis, not per clip: a `fresh=true` rerun pays again, and a duplicate upload costs nothing. Other models cost differently: with `LLM_MODEL_CHOICES`, only `openai/gpt-5-mini` was measured ($0.0069 on C10).
 
 ## 23. Future improvements
 
