@@ -54,6 +54,7 @@ Then set **one** value:
 | `DOCKER_LLM_BASE_URL` | `https://ai-gateway.vercel.sh/v1` | Model endpoint under docker compose (see the note below) |
 | `LLM_MODEL` | `google/gemini-2.5-flash` | The pinned model. Must accept images. |
 | `LLM_VISION` / `LLM_MAX_FRAMES` | `true` / `16` | Send frames to the model, and how many |
+| `LLM_PRICE_INPUT_PER_MTOK` / `LLM_PRICE_OUTPUT_PER_MTOK` | `0.30` / `2.50` | `LLM_MODEL`'s price per million tokens, used when the gateway doesn't report the billed cost. Required for any non-local endpoint; update them with `LLM_MODEL`. |
 | `MAX_COST_PER_CLIP_USD` | `1.0` | Budget per clip. Going over it is logged, not blocked. |
 | `LLM_MODEL_CHOICES` | unset | Extra models a caller may pick per upload, for comparing models. Leave unset otherwise. |
 | `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` | unset | Basic auth on every route but `/health`. Set both or neither. |
@@ -64,6 +65,8 @@ Then set **one** value:
 > **Docker note.** docker compose does **not** use `LLM_BASE_URL`: inside a container `localhost` is the container itself, so compose reads `DOCKER_LLM_BASE_URL` instead, and its fallback is a local Ollama. If you edit `.env` by hand, keep **both** URLs pointing at the gateway, or the container will try to reach Ollama and every analysis fails with a model error.
 
 Settings are read from `.env` by `app/settings.py`. A misspelled variable is ignored silently, not rejected, so copy names from `example.env`.
+
+**The service refuses to start** when a non-local model endpoint (anything but `localhost`, `127.0.0.1` or `host.docker.internal`) is missing its API key or the two prices, and the error lists every missing variable at once. Without them the first analysis would fail with a 401, or a clip whose cost the gateway did not report would be stored as $0. A local Ollama needs neither. Setting both prices to `0` declares an endpoint free.
 
 ## Run it
 
@@ -143,6 +146,7 @@ Deployment to Fly.io (`make fly-setup`, `make fly-secrets`, `make deploy`) is op
 | Analysis fails with `model_error` under Docker | `DOCKER_LLM_BASE_URL` is missing, so the container calls Ollama. See the Docker note. |
 | Analysis fails with `model_error` and the logs show a 401 | `AI_GATEWAY_API_KEY` is missing or wrong |
 | The service refuses to start with pending migrations | `AUTO_RUN_MIGRATIONS=false`: run `make migrate` |
+| The service refuses to start: "… is not a local endpoint, so these must be set: …" | Add the variables it lists to `.env` (copy them from `example.env`), or to `fly.toml` / `make fly-secrets` on Fly |
 | Tests fail to connect | Postgres is not up: `make db` |
 | Port 5432 or 9500 already in use | Stop the other service, or change the port mapping in `docker-compose.yml` |
 

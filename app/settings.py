@@ -1,14 +1,19 @@
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlparse
 
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PIPELINE_VERSION = "0.3.1"
 
+# Model endpoints on this machine or the Docker host: free, so they need neither a key nor prices.
+LOCAL_LLM_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal"}
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # hide_input_in_errors: a startup error must not print the API key or passwords into the logs.
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
     database_url: str = "postgresql://clip:clip@localhost:5432/clip_scoring"
     # Off: the service refuses to start until `make migrate` has run. On: it migrates on startup.
@@ -37,9 +42,11 @@ class Settings(BaseSettings):
     llm_json_mode: bool = True
     llm_timeout_s: float = 180.0
     llm_seed: int = 7
-    # Fallback cost estimate when the provider doesn't report cost in `usage`.
-    llm_price_input_per_mtok: float = 0.0
-    llm_price_output_per_mtok: float = 0.0
+    # Fallback cost estimate (USD per million tokens) when the provider doesn't report cost in
+    # `usage`. Required for any non-local endpoint, so a cost is never recorded as $0 by omission;
+    # set 0 to declare an endpoint free.
+    llm_price_input_per_mtok: float | None = None
+    llm_price_output_per_mtok: float | None = None
     # Budget per analysis (one judge call). Going over it is logged, not enforced: the cost is
     # only known after the call.
     max_cost_per_clip_usd: float = 1.0
@@ -56,6 +63,31 @@ class Settings(BaseSettings):
         if bool(self.basic_auth_user) != bool(self.basic_auth_password):
             raise ValueError("Set both BASIC_AUTH_USER and BASIC_AUTH_PASSWORD, or neither.")
         return self
+
+    @model_validator(mode="after")
+    def _paid_endpoint_is_fully_configured(self) -> "Settings":
+        """Refuse to start when a paid model endpoint could not be called or its cost not known."""
+        if self.llm_is_local:
+            return self
+        missing = []
+        if self.llm_api_key in ("", "ollama"):
+            missing.append("AI_GATEWAY_API_KEY (or LLM_API_KEY): the endpoint needs an API key")
+        if self.llm_price_input_per_mtok is None:
+            missing.append("LLM_PRICE_INPUT_PER_MTOK: USD per million input tokens of LLM_MODEL")
+        if self.llm_price_output_per_mtok is None:
+            missing.append("LLM_PRICE_OUTPUT_PER_MTOK: USD per million output tokens of LLM_MODEL")
+        if missing:
+            raise ValueError(
+                f"LLM_BASE_URL {self.llm_base_url} is not a local endpoint, so these must be set: "
+                + "; ".join(missing)
+                + ". The prices are the fallback when the provider doesn't report the billed cost; "
+                "set them to 0 to declare the endpoint free."
+            )
+        return self
+
+    @property
+    def llm_is_local(self) -> bool:
+        return urlparse(self.llm_base_url).hostname in LOCAL_LLM_HOSTS
 
     @property
     def allowed_models(self) -> list[str]:
