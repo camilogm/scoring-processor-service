@@ -19,7 +19,7 @@ The service is built around one principle: **measure first, judge second, verify
 
 The scope of this version is deliberately focused. It covers the full path from upload to a stored, retrievable result, within the 12-hour effort cap and with a buffer reserved for risk. Every item left out is documented, with its reason, in [section 23](#23-future-improvements).
 
-> **Document status.** This is the design proposal. Items marked _Pending_ are completed after the build: measured cost, repeatability results and the final reflection. A real output is in [section 19](#19-example-requests-and-output).
+> **Document status.** This began as the design proposal and is updated as results come in: a real output is in [section 19](#19-example-requests-and-output), verification and repeatability in [section 21](#21-verification), measured cost in [section 22](#22-cost). Items still marked _Pending_ are not done yet.
 
 ---
 
@@ -245,7 +245,7 @@ This table separates what is assumed from what is tested, and is updated as resu
 | Scores are stable across fresh runs                | Tested on 2 clips × 5 runs: verdict and overall score unchanged; one judged run moved two areas by one step | Repeatability experiment ([section 21](#repeatability-results))                  |
 | The rubric does not favour one production style    | To be tested                    | Score distribution per account                                                   |
 | The measured signals are accurate on these clips   | To be tested                    | Manual review of five clips                                                      |
-| Cost remains under $1 per clip                     | To be measured                  | Per-request usage data from the model gateway                                    |
+| Cost remains under $1 per clip                     | Measured: $0.0070 on average over 19 runs | Gateway-billed cost per analysis, recomputed once from tokens ([section 22](#22-cost)) |
 
 ### Success criteria for this version
 
@@ -833,13 +833,40 @@ Unlike Retensis and ClipAPI, the report does **not** include a predicted retenti
 
 ## 21. Verification
 
-| Check            | Method                                                                                                  | Result    |
-| ---------------- | ------------------------------------------------------------------------------------------------------- | --------- |
-| Unit tests       | Scoring arithmetic, cap rule, weight rescaling, validation                                              | _Pending_ |
-| API tests        | Every documented error code                                                                             | _Pending_ |
-| Crash durability | `scripts/restart_check.sh`: upload, forced stop, restart, retrieval                                     | _Pending_ |
-| Repeatability    | `scripts/repeatability.py`: five fresh runs on two clips, reporting score variation and verdict changes | Done: no verdict or overall-score change; details below |
-| Dataset run      | `scripts/run_dataset.py`: all 30 clips, scores against account-normalised views                         | _Pending_ |
+Everything below was run on 2 October 2026 against `main` after [#14](https://github.com/camilogm/scoring-processor-service/pull/14) to [#16](https://github.com/camilogm/scoring-processor-service/pull/16).
+
+| Check | How to run it | Result |
+| --- | --- | --- |
+| Automated tests | `make test` (needs only Postgres: `make db`) | **191 passed**, 92% line coverage (`make coverage`) |
+| Crash durability | `make restart-check CLIP=dataset/videos/C03.mp4` (add `CLIP_API_AUTH=user:password` when Basic auth is on) | **PASS**: an analysis killed with `kill -9` during `extract` came back as `failed / interrupted_by_restart`, and a completed analysis came back identical after the restart |
+| Durability on the deployment | Not staged: observed | Fly stopped the machine during an analysis on 30 September; after the restart that analysis read `failed / interrupted_by_restart`, and completed analyses stayed retrievable across the machine's later stops and starts |
+| Repeatability | `scripts/repeatability.py`: five fresh runs on two clips | No verdict or overall-score change in 10 runs; details below |
+| Real output | One clip, end to end, on the deployment | [`examples/C30.json`](examples/C30.json), see [section 19](#19-example-requests-and-output) |
+| Cost | One call recomputed from tokens and list price, plus every stored cost | Matched the billed cost to the eighth decimal; see [section 22](#22-cost) |
+| Dataset run | `scripts/run_dataset.py`: all 30 clips, scores against account-normalised views | _Pending_ |
+
+### What the automated tests cover
+
+The tests run the real code against a real Postgres (one fresh database per test). They replace only what is slow, paid or needs media tools: `validate.probe` (ffprobe), `runner.extract_all` (ffmpeg, Whisper, scene detection) and the model call (`judge.chat`, or the HTTP client in the client tests).
+
+| Area | Tests | What they check |
+| --- | --- | --- |
+| API (`test_api`, `test_openapi`, `test_auth`) | 63 | Every documented status and error code (400, 401, 404, 413, 415, 422), deduplication and `fresh`, the cache key and what changes it, model choice, the OpenAPI schema, Basic auth on every route but `/health` |
+| Storage (`test_store`, `test_migrations`) | 19 | Two concurrent uploads of one clip create one analysis (the partial unique index), the startup sweep, migrations applied on startup or refused when pending |
+| Pipeline (`test_runner`, `test_signals`, `test_verify`, `test_score`, `test_judge`, `test_extract`) | 62 | The response has the same shape, field for field, as [`report-example.json`](report-example.json); signals from word timestamps; every verification rule (late start, boundary cut with two agreeing signals, timestamps beyond the clip, quotes and their times); weights, rescaling, the cap and the verdict thresholds; parsing malformed model output |
+| Upload checks (`test_validate`, `test_format_check`, `test_duration_check`) | 19 | MP4 detection, rotated phone video, 9:16 and other frames, the 3-minute scope |
+| Model client and settings (`test_llm_client`, `test_settings`) | 19 | The three cost sources, retries while the gateway records a call, context overflow messages, the startup refusal when a key or price is missing, secrets never printed |
+| HTML report (`test_report`) | 9 | Signal rows, the format and duration sections (also while an analysis is pending), the provenance footer |
+
+### What is not tested
+
+- **The real media tools in the automated tests.** ffmpeg, Whisper and PySceneDetect are stubbed (that is the 50% coverage of `extract.py`); they are exercised only by real runs (sections 19, 21 and 22) on five clips.
+- **The accuracy of the measured signals.** No transcript, cut or loudness value has been checked by hand against the video. The C30 opener ("if", speech at 0:00) and its shareable line were spot-checked against the transcript, not the audio.
+- **The model's judgments** beyond consistency: nobody has scored clips by hand to compare.
+- **Scores against performance**: the 30-clip dataset run is pending.
+- **Clips outside the sample**: no music-only clip, no slideshow, no non-English speech, no clip near a verdict threshold.
+- **Load and concurrency** beyond two simultaneous uploads: one worker processes one analysis at a time, by design.
+- **Local models**: Ollama runs were used during development and are not part of any reported result.
 
 ### Repeatability results
 

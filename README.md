@@ -179,7 +179,7 @@ The upload checks report alongside the score: `format_check` is `acceptable` (9:
 | `make test` | Test suite. Needs only Postgres: ffmpeg and the model are stubbed. Narrow it with `T=tests/test_store.py::test_name` |
 | `make lint` | Ruff |
 | `make migrate` / `make migration m="..."` | Apply pending migrations / create a new one |
-| `make restart-check CLIP=clip.mp4` | Durability check: `kill -9` the server mid-analysis and confirm nothing is lost |
+| `make restart-check CLIP=clip.mp4` | Durability check: `kill -9` the server mid-analysis, restart, and confirm the interrupted analysis reports why and a completed one is unchanged. With Basic auth on, add `CLIP_API_AUTH=user:password` |
 | `make repeatability CLIP=clip.mp4 RUNS=5` | Analyse the same clip several times and report how stable the scores are |
 | `make spend` | Vercel AI Gateway balance and total spend |
 | `make coverage` / `make sonar-up` / `make sonar-scan` | Coverage, and a local SonarQube to reproduce the quality numbers |
