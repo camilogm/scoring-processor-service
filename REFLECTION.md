@@ -117,6 +117,8 @@ In general, I learned a lot about using tools I had used before for more traditi
 5. Replace the startup sweep with leases (`SELECT … FOR UPDATE SKIP LOCKED`), and add bounded retries for transient model errors.
 6. Add an event or workflow manager to split some of the tasks. It could be an external service such as Camunda, Lambda functions, message brokers, or any workflow tool that fits the company's stack.
 
+Every change to the prompt, rubric, pipeline or model goes through the eval gate in [docs/evals.md](docs/evals.md) before it ships: the golden-set comparison exists today, the bad-cut, invariance and labelled-rule checks are planned.
+
 ## AI coding tools
 
 I used **Claude Code** throughout:
