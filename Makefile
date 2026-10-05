@@ -1,10 +1,11 @@
 .DEFAULT_GOAL := help
 .PHONY: help install db db-stop db-shell run dev test lint migrate migration downgrade db-current db-history \
-        up down watch build logs ps restart-check repeatability clean \
+        up down watch debug debug-up debug-watch build logs ps restart-check repeatability clean \
         coverage sonar-up sonar-scan sonar-report sonar-open sonar-down sonar-clean \
         fly-setup fly-secrets fly-choices-off password deploy fly-logs fly-open spend
 
 PORT ?= 9500
+DEBUGPY_PORT ?= 5678
 RUNS ?= 5
 COMPOSE := docker compose
 ALEMBIC := uv run alembic
@@ -31,6 +32,9 @@ run: db ## Run the API locally (needs ffmpeg and an LLM endpoint)
 
 dev: db ## Run the API locally with auto-reload on code changes
 	uv run uvicorn app.main:app --port $(PORT) --reload --reload-dir app
+
+debug: db ## Like dev, with debugpy on localhost:5678 (DEBUGPY_PORT=...) for your IDE to attach (reattach after a reload)
+	DEBUGPY_PORT=$(DEBUGPY_PORT) PYDEVD_DISABLE_FILE_VALIDATION=1 uv run uvicorn app.main:app --port $(PORT) --reload --reload-dir app
 
 test: db ## Run the test suite; narrow it with T=tests/test_store.py::test_name
 	uv run pytest $(T)
@@ -66,6 +70,14 @@ down: ## Stop the stack (data stays in the volume)
 
 watch: ## Full stack in watch mode: syncs + restarts on code changes, rebuilds on dependency changes
 	$(COMPOSE) up --build --watch
+
+DEBUG_COMPOSE := $(COMPOSE) -f docker-compose.yml -f docker-compose.debug.yml
+
+debug-up: ## Full stack with debugpy in the api, attach on localhost:5678
+	$(DEBUG_COMPOSE) up --build -d
+
+debug-watch: ## debug-up in watch mode (reattach the debugger after each restart)
+	$(DEBUG_COMPOSE) up --build --watch
 
 build: ## Rebuild the api image
 	$(COMPOSE) build api

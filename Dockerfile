@@ -11,7 +11,9 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PYTHONUNBUFFERED=1 \
     HF_HOME=/app/var/models
 
 COPY pyproject.toml uv.lock* ./
-RUN uv sync --no-dev --no-install-project
+# debugpy only in local images (compose sets it from .env): the deployed image never has it.
+ARG INSTALL_DEBUGPY=false
+RUN uv sync --no-default-groups --no-install-project $([ "$INSTALL_DEBUGPY" = true ] && echo --group debug)
 
 COPY alembic.ini ./
 COPY app ./app

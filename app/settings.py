@@ -53,6 +53,12 @@ class Settings(BaseSettings):
 
     run_worker: bool = True
 
+    # Local debugging only: set a port (5678) to let an IDE attach with debugpy. An open debugpy
+    # port runs any code sent to it, so it listens on loopback; compose binds 0.0.0.0 inside the
+    # container and publishes the port on the host's loopback only.
+    debugpy_port: int | None = None
+    debugpy_host: str = "127.0.0.1"
+
     # HTTP Basic auth for every route but /health. Off when both are empty (local runs); set both
     # as secrets on any deployment reachable from the internet.
     basic_auth_user: str = ""

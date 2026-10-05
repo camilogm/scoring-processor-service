@@ -93,6 +93,42 @@ make install               # uv sync
 make run                   # starts Postgres in Docker, then the API on :9500
 ```
 
+### Debugging (debugpy)
+
+Start the API with a debugpy port, then attach your IDE to `localhost:5678`:
+
+```bash
+make debug                 # outside Docker: like make dev, plus debugpy
+make debug-up              # under Docker: the stack with docker-compose.debug.yml on top
+```
+
+The port opens before the worker starts, so breakpoints in the pipeline (`app/pipeline/`) stop too. It is off unless `DEBUGPY_PORT` is set, listens on loopback only (an open debugpy port runs any code sent to it), and the deployed image never contains debugpy. After a reload or a watch restart the process is new: attach again.
+
+VS Code `.vscode/launch.json` (the `pathMappings` are only needed under Docker, where the code lives in `/app`):
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach (local)",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": { "host": "localhost", "port": 5678 }
+    },
+    {
+      "name": "Attach (Docker)",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": { "host": "localhost", "port": 5678 },
+      "pathMappings": [{ "localRoot": "${workspaceFolder}", "remoteRoot": "/app" }]
+    }
+  ]
+}
+```
+
+Neovim (nvim-dap) takes the same `attach` configuration.
+
 ## Try it
 
 | URL | What it is |
@@ -180,6 +216,7 @@ The upload checks report alongside the score: `format_check` is `acceptable` (9:
 | `make watch` | Full stack that syncs and restarts on code changes |
 | `make install` | Install Python dependencies (`uv sync`) |
 | `make run` / `make dev` | API outside Docker, without / with auto-reload (starts Postgres first) |
+| `make debug` / `make debug-up` / `make debug-watch` | Same as `dev` / `up` / `watch`, with debugpy on `localhost:5678` (see Debugging) |
 | `make db` / `make db-stop` / `make db-shell` | Start, stop or `psql` into Postgres alone |
 | `make test` | Test suite. Needs only Postgres: ffmpeg and the model are stubbed. Narrow it with `T=tests/test_store.py::test_name` |
 | `make lint` | Ruff |
@@ -201,6 +238,7 @@ Deployment to Fly.io (`make fly-setup`, `make fly-secrets`, `make deploy`) is op
 | The service refuses to start with pending migrations | `AUTO_RUN_MIGRATIONS=false`: run `make migrate` |
 | The service refuses to start: "… is not a local endpoint, so these must be set: …" | Add the variables it lists to `.env` (copy them from `example.env`), or to `fly.toml` / `make fly-secrets` on Fly |
 | Tests fail to connect | Postgres is not up: `make db` |
+| `debugger not started ... Address already in use` in the logs | Another process holds 5678. Use `make debug DEBUGPY_PORT=5679`, or `DEBUGPY_HOST_PORT=5679 make debug-up` |
 | Port 5432 or 9500 already in use | Stop the other service, or change the port mapping in `docker-compose.yml` |
 
 ## Repository map

@@ -21,6 +21,9 @@ dependencies = [
 ]
 
 [dependency-groups]
+debug = [
+    "debugpy>=1.8.22",
+]
 dev = [
     "pytest>=8",
     "httpx>=0.27",
@@ -29,6 +32,8 @@ dev = [
 
 [tool.uv]
 package = false
+# `uv sync` installs both locally; the image installs debug only with INSTALL_DEBUGPY=true.
+default-groups = ["dev", "debug"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,17 @@
+# Debug overlay for the api: `make debug-up` (or `make debug-watch`), then attach an IDE to
+# localhost:5678. Kept out of docker-compose.yml so the plain stack never opens the port or ships
+# debugpy in its image.
+services:
+  api:
+    build:
+      args:
+        INSTALL_DEBUGPY: "true"
+    environment:
+      DEBUGPY_PORT: 5678
+      # Inside the container loopback isn't reachable from the host, so bind every interface here
+      # and publish the port on the host's loopback only.
+      DEBUGPY_HOST: 0.0.0.0
+      # Silences the frozen-modules warning (it only affects breakpoints inside the stdlib).
+      PYDEVD_DISABLE_FILE_VALIDATION: 1
+    ports:
+      - "127.0.0.1:${DEBUGPY_HOST_PORT:-5678}:5678"

@@ -8,6 +8,7 @@ from app.api.errors import install_error_handlers
 from app.api.openapi import install_openapi
 from app.api.routes import router
 from app.config.rubric import load_rubric
+from app.debugger import start_debugger
 from app.pipeline.runner import Runner
 from app.settings import PIPELINE_VERSION, Settings, get_settings
 from app.storage.db import Store
@@ -22,6 +23,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        start_debugger(settings)
         settings.ensure_dirs()
         store = Store(settings.database_url)
         store.init(auto_migrate=settings.auto_run_migrations)
