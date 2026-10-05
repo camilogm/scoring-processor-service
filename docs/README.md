@@ -19,7 +19,7 @@ The service is built around one principle: **measure first, judge second, verify
 
 The scope of this version is deliberately focused. It covers the full path from upload to a stored, retrievable result, within the 12-hour effort cap and with a buffer reserved for risk. Every item left out is documented, with its reason, in [section 23](#23-future-improvements).
 
-> **Document status.** This began as the design proposal and is updated as results come in: a real output is in [section 19](#19-example-requests-and-output), verification and repeatability in [section 21](#21-verification), measured cost in [section 22](#22-cost). Items still marked _Pending_ are not done yet.
+> **Document status.** This began as the design proposal and is updated as results come in: a real output is in [section 19](#19-example-requests-and-output), verification and repeatability in [section 21](#21-verification), measured cost in [section 22](#22-cost). What was not done, such as the 30-clip dataset run, is marked **Not done**.
 
 ---
 
@@ -182,7 +182,7 @@ The dataset includes views, likes and shares, but no watch time or retention dat
 
 Performance data is **never** provided to the analysis. It is used only afterwards, for evaluation.
 
-Results: _Pending._
+Results: item 5 is done. Five fresh runs each of two clips never changed the verdict or the overall score ([repeatability results](#repeatability-results)). Items 1 to 4 and 6 need the 30-clip dataset run, which was not done in this version, so usefulness against real performance is still untested ([section 21](#21-verification)).
 
 ## 7. Known limitations
 
@@ -307,7 +307,7 @@ The service assumes a speech-led clip, consistent with the dataset. When the mea
 
 ### Stage 4: Judgment (single model call)
 
-One call to the pinned model scores the four judgment-based areas: hook, completeness, clarity and on-screen text. The call receives the timestamped transcript, the measured signals, four to six sampled frames, and the anchored rubric for each area. It returns **structured JSON only**: for each area, a score, timestamped evidence, one recommended fix and a confidence level, together with the summary, the clip's main point and the viral potential fields. Pacing and audio are scored from measurements. The model never calculates the overall score or the verdict. The design rationale is described in [section 11](#11-tools-feasibility-and-model-judgment).
+One call to the pinned model scores the four judgment-based areas: hook, completeness, clarity and on-screen text. The call receives the timestamped transcript, the measured signals, up to 16 sampled frames (`LLM_MAX_FRAMES`: three in the first 3 seconds, the rest spread over the clip), and the anchored rubric for each area. It returns **structured JSON only**: for each area, a score, timestamped evidence, one recommended fix and a confidence level, together with the summary, the clip's main point and the viral potential fields. Pacing and audio are scored from measurements. The model never calculates the overall score or the verdict. The design rationale is described in [section 11](#11-tools-feasibility-and-model-judgment).
 
 ### Stage 5: Verification
 
@@ -334,7 +334,7 @@ Every area of the rubric can be delivered with standard, mostly local tools, wit
 | **ffmpeg**                           | Decoding, frame sampling, loudness, silence detection              | Standard and deterministic                                                                                                      | –                                                                                                      |
 | **faster-whisper**                   | Transcript with word timestamps; built-in voice activity detection | Runs locally on CPU at no cost, fast enough for 1 to 3 minute clips                                                             | **WhisperX**, for more precise word timestamps if boundary detection proves unreliable                 |
 | **PySceneDetect** (AdaptiveDetector) | Cut detection and visual change in the first 3 seconds             | Handles camera movement better than a fixed threshold                                                                           | ffmpeg scene filter (fewer dependencies, less precise)                                                 |
-| **Gateway model** (pinned)           | The judgment call, including four to six frames                    | Requires image support; selected in the model selection phase ([section 16](#16-model-strategy))                                | Sending the full video to a video-native model: simpler, but closer to forwarding and harder to verify |
+| **Gateway model** (pinned)           | The judgment call, including up to 16 frames                       | Requires image support; selected in the model selection phase ([section 16](#16-model-strategy))                                | Sending the full video to a video-native model: simpler, but closer to forwarding and harder to verify |
 | **Ollama with local Gemma**          | Development runs                                                   | No cost; same client interface as the gateway; the 4B and larger Gemma 3 models accept images, so frame checks also run locally | Llama 3.1 (text only)                                                                                  |
 
 ### Reliability by area
@@ -365,7 +365,7 @@ The single call is structured to limit cross-influence: each area has its own se
 | Hook               | First ~5 seconds of transcript, time to first word, 3 to 4 frames from the first 3 seconds, cut timestamps in that window |
 | Completeness       | First and last two sentences with timestamps, boundary signals, full transcript for reference checks                      |
 | Clarity and payoff | Full transcript                                                                                                           |
-| On-screen text     | Four to six sampled frames, plus OCR output once added                                                                    |
+| On-screen text     | Up to 16 sampled frames, plus OCR output once added                                                                       |
 
 Splitting costs approximately the same in tokens, since each judge receives only part of the evidence.
 
@@ -405,7 +405,8 @@ Verification remains **deterministic code**, not another model: it is free, repe
 Multipart form:
 
 - `file`: the MP4.
-- `metadata`: a JSON string, for example `{"title": "...", "account": "...", "platform": "tiktok", "external_id": "C07"}`. Required fields: _Pending._
+- `metadata`: a JSON string, for example `{"title": "...", "account": "...", "platform": "tiktok", "external_id": "C07"}`. **Every field is optional**, and so is `metadata` itself. `platform` must be `tiktok` or `instagram` when present; any other value, a non-string field or invalid JSON returns `400 invalid_metadata`. Only `title` and `platform` go into duplicate detection; `account` and `external_id` are stored and returned.
+- `model` (optional): another model from `LLM_MODEL_CHOICES`, for comparing models. Off when that setting is empty; anything not allowed returns `400 model_not_allowed`.
   - `external_id` is the caller's own reference, such as a sample or post ID. It is returned unchanged in every response so results can be matched to the caller's records. It does not affect the analysis and is not part of duplicate detection.
 
 Query parameter:
@@ -447,20 +448,21 @@ Availability check.
 | `200` | `GET` found the analysis, including failed analyses (the request succeeded; the analysis did not) |
 | `200` | `POST` matched an existing analysis of the same clip and returned it                              |
 | `202` | `POST` accepted and stored a new analysis                                                         |
-| `400` | Malformed metadata                                                                                |
-| `404` | Unknown analysis ID                                                                               |
-| `413` | File too large                                                                                    |
-| `415` | Not an MP4                                                                                        |
-| `422` | Valid MP4 that cannot be processed (no video stream, too long, corrupt)                           |
-| `500` | Unexpected server error                                                                           |
+| `400` | Malformed metadata (`invalid_metadata`), no file (`missing_file`), a model that is not allowed (`model_not_allowed`), any other invalid field (`invalid_request`) |
+| `401` | Basic auth is on (`BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD`) and the credentials are missing or wrong; every route but `/health` |
+| `404` | Unknown analysis ID (`not_found`)                                                                 |
+| `413` | File larger than `MAX_UPLOAD_MB`, 200 MB by default (`file_too_large`)                            |
+| `415` | Not an MP4 (`unsupported_media_type`)                                                             |
+| `422` | MP4 that cannot be processed: corrupt (`unreadable_video`), no video stream (`no_video_stream`), longer than `MAX_DURATION_S`, 240 s by default (`too_long`) |
+| `500` | Unexpected server error (`internal_error`)                                                        |
 
-Failure reasons recorded on failed analyses include `extraction_failed`, `model_error`, `model_invalid_output` and `interrupted_by_restart`. Full list: _Pending._
+Every error body is `{"error": {"code": "...", "message": "..."}}`. A failed analysis returns `200` with `status: "failed"` and one of these codes in `error.code`: `extraction_failed` (ffmpeg, transcription or scene detection failed), `model_error` (the model call failed), `model_invalid_output` (the model's answer did not match the schema), `interrupted_by_restart` (the service stopped during the run) and `internal_error` (anything else).
 
 ## 13. Storage and durability
 
 **Postgres**, run as a container in docker compose with its data on a persistent volume. Selected for three reasons: its write-ahead log makes every committed write survive a crash; it supports the partial unique index and `ON CONFLICT` insert used for duplicate detection ([section 15](#15-interrupted-runs-duplicates-and-concurrency)); and it is the production choice, so no migration is needed later. Docker compose starts it automatically, so reviewers need no manual database setup.
 
-### `analyses` table (draft)
+### `analyses` table
 
 | Column                                                             | Purpose                                                                                                                                                                                                      |
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -563,7 +565,7 @@ LLM_MODEL=gemma3:4b   # any image-capable Gemma tag
 
 # Reported results
 LLM_BASE_URL=https://ai-gateway.vercel.sh/v1
-LLM_MODEL=<pinned after selection>
+LLM_MODEL=google/gemini-2.5-flash
 ```
 
 ### Phases
@@ -595,7 +597,7 @@ Notes on local models:
 | Report (optional)      | Jinja2 templates          | Server-rendered HTML, no build step                                                 |
 | Packaging              | Docker and docker compose | Reviewers do not need to install ffmpeg or Python dependencies                      |
 
-### Project structure (draft)
+### Project structure
 
 ```
 .
@@ -843,7 +845,7 @@ Everything below was run on 2 October 2026 against `main` after [#14](https://gi
 | Repeatability | `scripts/repeatability.py`: five fresh runs on two clips | No verdict or overall-score change in 10 runs; details below |
 | Real output | One clip, end to end, on the deployment | [`examples/C30.json`](examples/C30.json), see [section 19](#19-example-requests-and-output) |
 | Cost | One call recomputed from tokens and list price, plus every stored cost | Matched the billed cost to the eighth decimal; see [section 22](#22-cost) |
-| Dataset run | `scripts/run_dataset.py`: all 30 clips, scores against account-normalised views | _Pending_ |
+| Dataset run | `scripts/run_dataset.py`: all 30 clips, scores against account-normalised views | **Done** on 4 October 2026: 30/30 completed, $0.22 in total; no within-account correlation between score and reach. Findings and next steps in [`dataset-run.md`](dataset-run.md) |
 
 ### What the automated tests cover
 
@@ -863,7 +865,7 @@ The tests run the real code against a real Postgres (one fresh database per test
 - **The real media tools in the automated tests.** ffmpeg, Whisper and PySceneDetect are stubbed (that is the 50% coverage of `extract.py`); they are exercised only by real runs (sections 19, 21 and 22) on five clips.
 - **The accuracy of the measured signals.** No transcript, cut or loudness value has been checked by hand against the video. The C30 opener ("if", speech at 0:00) and its shareable line were spot-checked against the transcript, not the audio.
 - **The model's judgments** beyond consistency: nobody has scored clips by hand to compare.
-- **Scores against performance**: the 30-clip dataset run is pending.
+- **Scores against performance**: the 30-clip dataset run was not done.
 - **Clips outside the sample**: no music-only clip, no slideshow, no non-English speech, no clip near a verdict threshold.
 - **Load and concurrency** beyond two simultaneous uploads: one worker processes one analysis at a time, by design.
 - **Local models**: Ollama runs were used during development and are not part of any reported result.
@@ -965,7 +967,7 @@ The following items were deferred to keep the build within the 12-hour cap. Each
 | Deferred item                         | Current approach                                               | Value it would add                                                 |
 | ------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------ |
 | Specialist judges (one call per area) | One structured call with a section and anchored scale per area | Less influence between areas; failures isolated per area           |
-| OCR (RapidOCR) and caption sync       | The model reads captions from four to six sampled frames       | Measured caption coverage and timing                               |
+| OCR (RapidOCR) and caption sync       | The model reads captions from up to 16 sampled frames          | Measured caption coverage and timing                               |
 | Speech, music and noise classifier    | Speech assumed; low-speech clips flagged with low confidence   | A dedicated scoring path for music clips and slideshows            |
 | Extended verification rules           | Three rules: late start, boundary cut, unsupported evidence    | More model claims checked against measurements                     |
 | Report timeline                       | Timestamped evidence and fixes in text                         | A visual map of speech, pauses, cuts, captions and flagged moments |
