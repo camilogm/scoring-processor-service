@@ -2,6 +2,54 @@
 
 The final explanation of the system and what I learned building it. The full design, with sources and measurements, is in [docs/README.md](docs/README.md).
 
+## TL;DR
+
+**What it does.** Upload an MP4 with optional metadata and get an ID back right away. A background worker returns **post, improve or skip**, an overall score from 0 to 10, and six areas, each with evidence and one fix. The areas are hook, standalone completeness, pacing, message clarity, audio and captions, in the order a viewer experiences a clip.
+
+**How it works: measure, judge, verify.**
+
+- **Measure.** ffmpeg, faster-whisper and PySceneDetect measure what code can measure: transcript, pauses, cuts, loudness and frames. Pacing and audio are scored from those measurements alone.
+- **Judge.** One model call (`google/gemini-2.5-flash` through Vercel AI Gateway) scores the four areas that need judgment.
+- **Verify.** Code checks the model's quotes and timestamps against the measurements and overrides them when they disagree.
+- **Score.** Code, not the model, computes the weighted score and the verdict.
+
+Every state change is committed to Postgres, so completed results survive a `kill -9`.
+
+**Main decisions.**
+
+- **A deterministic core with one model call.** This keeps cost low, makes the result repeatable and lets code check the model's claims.
+- **Versions in the cache key.** The duplicate key is the file's SHA-256 plus the prompt, rubric and pipeline versions, enforced by a unique index. The same clip is never paid for twice, and a change in logic never serves a stale result.
+- **Local Gemma first, then a gateway model.** I developed without spending credits, then picked the gateway model for cost and quality.
+
+**Results.**
+
+- **Cost and time.** About **$0.007 and about 30 s per clip** (19 runs), far under the $1 target.
+- **Repeatability.** 5 fresh runs each of two clips gave the same verdict and overall score 10 times out of 10.
+- **Tests and durability.** 191 tests pass, and the kill -9 restart check passes.
+
+**What I learned.**
+
+- **The model needs one time format.** The first results looked plausible but were wrong. The model read "0:23" as 0.23 s and mistimed the hook. One time format in the prompt, times taken from the transcript, verify rules and denser hook frames fixed it.
+- **Versioning is what made iteration safe.** I could compare results before and after each fix because every score records the logic that produced it.
+
+**Limitations.**
+
+- **Consistency is tested, usefulness is not.** Scores haven't been compared with real views or retention. The 30-clip evaluation wasn't run.
+- **Narrow sample.** I tested five English, speech-led clips.
+- **Simple worker.** One worker, no retries, and no resume after a crash.
+- **One model call.** The areas can influence each other.
+- **Exact-bytes duplicate check.** A re-encoded clip is analysed and paid for again.
+
+**Next.**
+
+1. Run the 30-clip evaluation and calibrate the weights and thresholds on it.
+2. Run repeatability on clips near a verdict threshold.
+3. Add OCR for captions.
+4. Add leases and bounded retries.
+5. Check resolution at upload, before paying for an analysis.
+
+The sections below explain each point in detail.
+
 ## How it works
 
 You upload an MP4 with optional metadata, and the service returns an ID right away. A worker thread in the same process then analyses the clip with a pattern I call **measure, judge, verify**:
