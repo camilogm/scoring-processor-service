@@ -2,7 +2,10 @@
 
 Upload a short-form video (TikTok / Instagram, up to 3 minutes) and get back a verdict, **post**, **improve** or **skip**, with a 0–10 score, six scores by area, evidence from the clip and a concrete fix for each.
 
-This file covers how to run it. The design, the rubric, the decisions and their trade-offs are in **[docs/README.md](docs/README.md)**.
+This file covers how to run it. Two other documents:
+
+- **[REFLECTION.md](REFLECTION.md)**: a one-page explanation of the system. It covers the main decisions, what worked and what didn't, the limitations, what's next, and the AI tools used.
+- **[docs/README.md](docs/README.md)**: the full design, the rubric, the research and the measurements.
 
 ## How it works
 
