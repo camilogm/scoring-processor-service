@@ -205,7 +205,7 @@
     "contradictions": []
   },
   "provenance": {
-    "model": "<pinned gateway model>",
+    "model": "google/gemini-2.5-flash",
     "prompt_version": "v2",
     "rubric_version": "v2",
     "pipeline_version": "0.3.1",
