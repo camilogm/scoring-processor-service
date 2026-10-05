@@ -33,7 +33,16 @@ def submit(video: Path, metadata: dict, fresh: bool = False, base: str = BASE) -
 def wait(analysis_id: str, base: str = BASE, timeout_s: float = 900) -> dict:
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
-        body = httpx.get(f"{base}/analyses/{analysis_id}", auth=AUTH, timeout=30).json()
+        try:
+            res = httpx.get(f"{base}/analyses/{analysis_id}", auth=AUTH, timeout=30)
+            res.raise_for_status()
+        except (httpx.TransportError, httpx.HTTPStatusError) as exc:
+            # A machine that stops and restarts (Fly) drops connections or answers 5xx for a moment.
+            if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code < 500:
+                raise
+            time.sleep(5)
+            continue
+        body = res.json()
         if body["status"] in ("completed", "failed"):
             return body
         time.sleep(2)

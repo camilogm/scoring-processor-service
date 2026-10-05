@@ -23,7 +23,9 @@ Every state change is committed to Postgres, so completed results survive a `kil
 
 **Results.**
 
-- **Cost and time.** About **$0.007 and about 30 s per clip** (19 runs), far under the $1 target.
+- **Cost and time.** About **$0.007 and about 25–30 s per clip**, far under the $1 target. The whole 30-clip dataset cost $0.22.
+- **Dataset run.** All 30 sample clips completed on the deployment: 22 post, 7 improve, 1 skip.
+  Details in [docs/dataset-run.md](docs/dataset-run.md).
 - **Repeatability.** 5 fresh runs each of two clips gave the same verdict and overall score 10 times out of 10.
 - **Tests and durability.** 191 tests pass, and the kill -9 restart check passes.
 
@@ -34,16 +36,16 @@ Every state change is committed to Postgres, so completed results survive a `kil
 
 **Limitations.**
 
-- **Consistency is tested, usefulness is not.** Scores haven't been compared with real views or retention. The 30-clip evaluation wasn't run.
-- **Narrow sample.** I tested five English, speech-led clips.
+- **Usefulness is only partly tested.** Within each account the score doesn't follow views, which depend on topic and news cycle. Among clips cut from the same episode, a large score gap pointed the right way in 5 of 6 pairs. The dataset has only posted clips, so I haven't yet measured whether the service tells a good cut from a bad one.
+- **Narrow sample.** 30 English, speech-led clips from three accounts, all already posted.
 - **Simple worker.** One worker, no retries, and no resume after a crash.
 - **One model call.** The areas can influence each other.
 - **Exact-bytes duplicate check.** A re-encoded clip is analysed and paid for again.
 
 **Next.**
 
-1. Run the 30-clip evaluation and calibrate the weights and thresholds on it.
-2. Run repeatability on clips near a verdict threshold.
+1. Score bad cuts of the dataset clips (late start, cut ending, missing hook) and check the score drops.
+2. Fix the two verify gaps the dataset run found: the boundary cap and quotes from on-screen text.
 3. Add OCR for captions.
 4. Add leases and bounded retries.
 5. Check resolution at upload, before paying for an analysis.
@@ -79,7 +81,8 @@ That would give us a dataset to evaluate success in a way customised to each acc
 
 ## Pitfalls and what I learned
 
-- **What I tested and what I didn't.** I tested **consistency**: 5 fresh runs each of two clips gave the same verdict and overall score in 10 of 10 runs, and the measured areas were identical every time. I haven't tested **usefulness**: the scores haven't been compared with real views or retention yet, so whether a high score means a better clip is still my own judgment, not a finding. The choice of model also matters a lot.
+- **What I tested and what I didn't.** I tested **consistency**: 5 fresh runs each of two clips gave the same verdict and overall score in 10 of 10 runs, and the measured areas were identical every time. Then I ran the **whole dataset**, 30 clips on the deployment ([docs/dataset-run.md](docs/dataset-run.md)). Within each account the score doesn't follow views. I didn't expect it to: reach depends on topic, the news cycle and the age of the post, and C27 reached 538× its account's median with an ordinary score. The fairer comparison is between clips cut from the same episode, where only the cut changes, and there a large score gap pointed the right way in 5 of 6 pairs. That's a direction, not proof. The choice of model also matters a lot.
+- **Real clips exposed rules that tests didn't.** Every clip in the dataset starts speaking at 0.0 s, because editors cut tight. So the boundary rule, which needs two signals to agree, was really relying on the model's flag alone. And the model quotes on-screen headlines as evidence for the hook, which the quote check flagged as missing from the transcript 18 times. Both rules passed their unit tests; only real clips showed the gap.
 - **The first results were wrong.** The documentation helped me start the service with a clear first approach. But in the first development cycle, the results of extracting the video and formatting it for the model were wrong and hard to interpret. They looked like they made sense, but after watching the clip they were a little off about when the hook happened, and they missed important content in the video. What fixed it:
   - **One time format in the prompt.** The transcript now reaches the model one sentence per line, as `[23.0s]` (prompt v2). Before, the model read "0:23" and returned 0.23.
   - **Times from the transcript, not the model.** The shareable line's time is taken from the word-level transcript.
@@ -98,7 +101,7 @@ In general, I learned a lot about using tools I had used before for more traditi
 
 ## Known limitations
 
-- Tested on five clips, English only, and speech-led clips only.
+- Tested on 30 clips from three accounts: English only, speech-led only, and all of them already posted, so there are no bad clips to compare against.
 - The measured signals (transcript, cuts, loudness) weren't checked by hand against the video.
 - No retention data, so "a strong hook keeps viewers watching" is an assumption, not a finding.
 - One worker, an in-memory queue, no retries and no resume after a crash.
@@ -107,11 +110,12 @@ In general, I learned a lot about using tools I had used before for more traditi
 
 ## What I would do next
 
-1. Run the 30-clip evaluation, and calibrate the weights and thresholds on it.
-2. Repeat the repeatability experiment on clips near a threshold, and with specialist judges.
-3. Add OCR to measure captions instead of asking the model.
-4. Replace the startup sweep with leases (`SELECT … FOR UPDATE SKIP LOCKED`), and add bounded retries for transient model errors.
-5. Add an event or workflow manager to split some of the tasks. It could be an external service such as Camunda, Lambda functions, message brokers, or any workflow tool that fits the company's stack.
+1. Make bad versions of the dataset clips with ffmpeg (start 3 s late mid-sentence, end mid-sentence, cut the hook) and check the score drops against each original. That's the test the posted-only dataset can't give.
+2. Fix the boundary cap so the model's flag alone can't cap a clip, and check quotes against on-screen text as well as the transcript.
+3. Repeat the repeatability experiment on clips near a threshold, and with specialist judges.
+4. Add OCR to measure captions instead of asking the model.
+5. Replace the startup sweep with leases (`SELECT … FOR UPDATE SKIP LOCKED`), and add bounded retries for transient model errors.
+6. Add an event or workflow manager to split some of the tasks. It could be an external service such as Camunda, Lambda functions, message brokers, or any workflow tool that fits the company's stack.
 
 ## AI coding tools
 

@@ -845,7 +845,7 @@ Everything below was run on 2 October 2026 against `main` after [#14](https://gi
 | Repeatability | `scripts/repeatability.py`: five fresh runs on two clips | No verdict or overall-score change in 10 runs; details below |
 | Real output | One clip, end to end, on the deployment | [`examples/C30.json`](examples/C30.json), see [section 19](#19-example-requests-and-output) |
 | Cost | One call recomputed from tokens and list price, plus every stored cost | Matched the billed cost to the eighth decimal; see [section 22](#22-cost) |
-| Dataset run | `scripts/run_dataset.py`: all 30 clips, scores against account-normalised views | **Not done** in this version |
+| Dataset run | `scripts/run_dataset.py`: all 30 clips, scores against account-normalised views | **Done** on 4 October 2026: 30/30 completed, $0.22 in total; no within-account correlation between score and reach. Findings and next steps in [`dataset-run.md`](dataset-run.md) |
 
 ### What the automated tests cover
 
